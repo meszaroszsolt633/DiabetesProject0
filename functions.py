@@ -3,6 +3,7 @@ import ntpath
 from xml_read import *
 from defines import *
 import pandas as pd
+import numpy as np
 
 
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
@@ -108,30 +109,23 @@ def fill_missing_glucose_level_data(data: dict[str, pd.DataFrame]):
     cleaned_data = {}
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
-    glucose_level_count = []
+    glucose_level_average = []
+    cleaned_data['glucose_level']['value']= cleaned_data['glucose_level']['value'].astype(int)
     current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
     last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
     while current_day <= last_day:
         next_day = current_day + pd.Timedelta(1, 'd')
-        day = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
-        day = day[day['ts'] < next_day]
 
+        glucose_level_count=cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts']>=current_day]
+        glucose_level_count=glucose_level_count[glucose_level_count['ts']< next_day]
+        average=np.sum(glucose_level_count['value'])/glucose_level_count.shape[0]
+        glucose_level_average.append(average)
         current_day = next_day
+    return glucose_level_average
 
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    one_minute = pd.Timedelta(1, 'minute')
-    five_minutes = pd.Timedelta(5, 'minute')
-    stats = {}
+    data, patient_data = load(TEST2_540_PATH)
+    print(fill_missing_glucose_level_data(data))
 
-    for file_path in ALL_FILE_PATHS:
-        # stats[ntpath.basename(file_path)] = get_file_missing_data_statistics(load(file_path))
-        print(file_path)
-        data, patient = load(file_path)
-        stats[ntpath.basename(file_path)] = drop_days_with_missing_glucose_data(data, 10)
-        print(stats[ntpath.basename(file_path)])
-        # write_to_xml(drop_days_with_missing_glucose_data(load(file_path), 50))
-        pass
-
-    # print(stats)
