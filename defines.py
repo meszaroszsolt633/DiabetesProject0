@@ -7,6 +7,7 @@ TEST2_DIR = os.path.join(ROOT_DIR, 'Test2')
 TRAIN_DIR = os.path.join(ROOT_DIR, 'Train')
 TRAIN2_DIR = os.path.join(ROOT_DIR, 'Train2')
 CLEANED_DATA_DIR=os.path.join(ROOT_DIR,'Cleaned Data')
+CLEANED_DATA_DIR2=os.path.join(ROOT_DIR,'Cleaned Data2')
 
 
 

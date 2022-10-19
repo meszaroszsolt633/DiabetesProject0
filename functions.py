@@ -58,7 +58,7 @@ def get_file_missing_data_statistics(data: dict[str, pd.DataFrame]):
             for time in data[data_type]['ts']:
                 if prev_time is not None:
                     delta = time - prev_time
-                    if  delta == pd.Timedelta(5,'m'):
+                    if delta == pd.Timedelta(5, 'm'):
                         time_step_found = True
                         break
 
@@ -72,7 +72,8 @@ def get_file_missing_data_statistics(data: dict[str, pd.DataFrame]):
     return statistics_result
 
 
-def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_count_threshold) -> dict[str, pd.DataFrame]:
+def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_count_threshold) -> dict[
+    str, pd.DataFrame]:
     cleaned_data = {}
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
@@ -86,7 +87,8 @@ def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_c
         day = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
         day = day[day['ts'] < next_day]
 
-        if day.empty or get_file_missing_data_statistics({'glucose_level': day})['glucose_level']['missing'] > missing_count_threshold:
+        if day.empty or get_file_missing_data_statistics({'glucose_level': day})['glucose_level'][
+            'missing'] > missing_count_threshold:
             for measurement_type in cleaned_data.keys():
                 # if any timestamp is in the day that is to be thrown away, throw away the entire event
                 for measurement_parameter in cleaned_data[measurement_type]:
@@ -100,6 +102,22 @@ def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_c
         current_day = next_day
 
     return cleaned_data
+
+
+def fill_missing_glucose_level_data(data: dict[str, pd.DataFrame]):
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
+    glucose_level_count = []
+    current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
+    last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
+    while current_day <= last_day:
+        next_day = current_day + pd.Timedelta(1, 'd')
+        day = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
+        day = day[day['ts'] < next_day]
+
+        current_day = next_day
+
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
