@@ -182,8 +182,6 @@ def last_existing_value(data, time_step: pd.Timedelta):
     return ts_dict
 
 
-
-
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
     data, patient_data = load(TRAIN2_544_PATH)
     print(data['glucose_level'])
