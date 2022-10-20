@@ -129,6 +129,8 @@ def create_increasing_rows(amount, datetime, avg, idx):
 def fill_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedelta,):
     avgs = avg_calculator(data)
     datacopy = data
+    current_day = pd.to_datetime(datacopy['glucose_level']['ts'].iloc[0].date())
+    last_day = pd.to_datetime(datacopy['glucose_level']['ts'].iloc[-1].date())
     prev_ts = None
     for idx, ts in enumerate(datacopy['glucose_level']['ts']):
         if prev_ts is not None:
@@ -162,6 +164,22 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
         glucose_level_average.append(average)
         current_day = next_day
     return glucose_level_average
+
+
+def last_existing_value(data, time_step: pd.Timedelta):
+    prev_ts = None
+    prevTimeStep=False
+    ts_dict= {'last_existing_before_hole': [] ,"first_existing_after_hole": [] }
+    for ts in data['glucose_level']['ts']:
+        if prev_ts is not None:
+            dt = ts - prev_ts
+            if dt == time_step or dt < time_step:
+                prevTimeStep=True
+            elif dt > (time_step * 1.5) and prevTimeStep==True:
+                ts_dict['last_existing_before_hole'].append(prev_ts)
+                ts_dict['first_existing_after_hole'].append(ts)
+        prev_ts=ts
+    return ts_dict
 
 
 
