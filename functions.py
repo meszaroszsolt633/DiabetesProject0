@@ -105,47 +105,7 @@ def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_c
     return cleaned_data
 
 
-
-def insert_row(idx, df, df_insert):
-    dfA = df.iloc[:idx, ]
-    dfB = df.iloc[idx:, ]
-
-    df = pd.concat([dfA,df_insert,dfB])
-
-    return df
-
-
-def create_increasing_rows(amount, datetime, avg, idx):
-    rows = pd.DataFrame(index=np.arange(idx+1, idx+amount), columns=('ts', 'value'))
-    next_datetime = datetime
-
-    for i in range(0, amount):
-        next_datetime += pd.Timedelta(5, 'm')
-        dt = pd.to_datetime(next_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
-        rows.loc[i] = pd.Series({'ts':dt, 'value' : avg})
-    return rows
-
-
-def fill_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedelta,):
-    avgs = avg_calculator(data)
-    datacopy = data
-    prev_ts = None
-    for idx, ts in enumerate(datacopy['glucose_level']['ts']):
-        if prev_ts is not None:
-            dt = ts - prev_ts
-            if dt >= time_step + pd.Timedelta(5, 'm'):
-                #megnézzük mennyi hiányzik
-                missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds()) - 1
-                #létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
-                df_to_insert = create_increasing_rows(missing_amount, prev_ts, avgs[0], idx) #Average-t még meg kell oldani, hogy mi
-                #beszúrjuk az új dataframeünket az eredetibe
-                datacopy_glucose = insert_row(idx,datacopy['glucose_level'], df_to_insert)
-                datacopy['glucose_level'] = datacopy_glucose
-        prev_ts = ts
-    return datacopy
-
-
-def avg_calculator(data: dict[str, pd.DataFrame]):
+def fill_missing_glucose_level_data(data: dict[str, pd.DataFrame]):
     cleaned_data = {}
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
@@ -164,9 +124,23 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
     return glucose_level_average
 
 
+def last_existing_value(data, time_step: pd.Timedelta):
+    prev_ts = None
+    prevTimeStep=False
+    ts_dict= {'last_existing_before_hole': [] ,"first_existing_after_hole": [] }
+    for ts in data['glucose_level']['ts']:
+        if prev_ts is not None:
+            dt = ts - prev_ts
+            if dt == time_step or dt < time_step:
+                prevTimeStep=True
+            elif dt > (time_step * 1.5) and prevTimeStep==True:
+                ts_dict['last_existing_before_hole'].append(prev_ts)
+                ts_dict['first_existing_after_hole'].append(ts)
+        prev_ts=ts
+    return ts_dict
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    data, patient_data = load(TRAIN2_544_PATH)
-    print(data['glucose_level'])
+    data, patient_data = load(TEST2_540_PATH)
+    print(last_existing_value(data,pd.Timedelta(5, 'm')))
 
