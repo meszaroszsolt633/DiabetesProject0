@@ -169,7 +169,7 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
 def last_existing_value(data, time_step: pd.Timedelta):
     prev_ts = None
     prevTimeStep=False
-    ts_dict= {'last_existing_before_hole': [] ,"first_existing_after_hole": [] }
+    ts_dict= {'last_existing_before_hole': [] ,"last_existing_before_hole_index": [], "first_existing_after_hole": [],"first_existing_after_hole_index": [] }
     for ts in data['glucose_level']['ts']:
         if prev_ts is not None:
             dt = ts - prev_ts
@@ -177,12 +177,22 @@ def last_existing_value(data, time_step: pd.Timedelta):
                 prevTimeStep=True
             elif dt > (time_step * 1.5) and prevTimeStep==True:
                 ts_dict['last_existing_before_hole'].append(prev_ts)
+                ts_dict['last_existing_before_hole_index'].append(find_index(data,prev_ts))
                 ts_dict['first_existing_after_hole'].append(ts)
+                ts_dict['first_existing_after_hole_index'].append(find_index(data,ts))
         prev_ts=ts
     return ts_dict
+
+def find_index(data,timespan):
+    idx=-1
+    for ts in data['glucose_level']['ts']:
+        idx=idx+1
+        if timespan == ts:
+            return idx
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
     data, patient_data = load(TRAIN2_544_PATH)
-    print(data['glucose_level'])
+    values=last_existing_value(data,pd.Timedelta(5, 'm'))
+    print(values)
 
