@@ -110,41 +110,79 @@ def insert_row(idx, df, df_insert):
     dfA = df.iloc[:idx, ]
     dfB = df.iloc[idx:, ]
 
-    df = pd.concat([dfA,df_insert,dfB])
+    df = pd.concat([dfA, df_insert, dfB])
+    df = df.reset_index(drop=True)
 
     return df
 
 
-def create_increasing_rows(amount, datetime, avg, idx):
-    rows = pd.DataFrame(index=np.arange(idx+1, idx+amount), columns=('ts', 'value'))
+def create_increasing_rows(amount, datetime, avg):
+    rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
     next_datetime = datetime
 
     for i in range(0, amount):
         next_datetime += pd.Timedelta(5, 'm')
         dt = pd.to_datetime(next_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
-        rows.loc[i] = pd.Series({'ts':dt, 'value' : avg})
+        rows.loc[i] = pd.Series({'ts': dt, 'value': math.floor(avg)})
     return rows
 
 
-def fill_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedelta,):
+def create_decreasing_rows(amount, datetime, avg):
+    rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
+    prev_datetime = datetime
+
+    for i in range(0, amount):
+        dt = pd.to_datetime(prev_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
+        rows.loc[i] = pd.Series({'ts': dt, 'value': math.floor(avg)})
+        prev_datetime += pd.Timedelta(5, 'm')
+    return rows
+
+def fill_start_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
-    datacopy = data
-    current_day = pd.to_datetime(datacopy['glucose_level']['ts'].iloc[0].date())
-    last_day = pd.to_datetime(datacopy['glucose_level']['ts'].iloc[-1].date())
+
+
+    # mindenekelőtt megnézzük hogy az első elem 0 óra környékén van e
+    first_timestamp = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
+                                   month=data['glucose_level']['ts'][0].month,
+                                   day=data['glucose_level']['ts'][0].day,
+                                   hour=data['glucose_level']['ts'][0].hour,
+                                   minute=data['glucose_level']['ts'][0].minute,
+                                   second=data['glucose_level']['ts'][0].second)
+    # kimentjük a 0 órát egy változóba
+    hour_zero = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
+                             month=data['glucose_level']['ts'][0].month,
+                             day=data['glucose_level']['ts'][0].day,
+                             hour=0, minute=0, second=0)
+    # megnézzük a különbséget
+    first_amount = first_timestamp - hour_zero
+    if first_amount > pd.Timedelta(10, 'm'):
+        # megnézzük mennyi elem hiányzik
+        first_amount_missing = math.floor(first_amount.total_seconds() / time_step.total_seconds()) - 1
+        df_to_insert = create_decreasing_rows(first_amount_missing, hour_zero, avgs[0])
+        data['glucose_level'] = insert_row(0, data['glucose_level'], df_to_insert)
+
+    return data
+    ######################################
+
+def fill_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
+    avgs = avg_calculator(data)
+    avg_index = 0
     prev_ts = None
-    for idx, ts in enumerate(datacopy['glucose_level']['ts']):
+    for idx, ts in enumerate(data['glucose_level']['ts']):
         if prev_ts is not None:
             dt = ts - prev_ts
-            if dt >= time_step + pd.Timedelta(5, 'm'):
-                #megnézzük mennyi hiányzik
+            if ts.day != prev_ts.day:
+                avg_index += 1
+            if dt >= time_step + time_step:
+                # megnézzük mennyi hiányzik
                 missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds()) - 1
-                #létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
-                df_to_insert = create_increasing_rows(missing_amount, prev_ts, avgs[0], idx) #Average-t még meg kell oldani, hogy mi
-                #beszúrjuk az új dataframeünket az eredetibe
-                datacopy_glucose = insert_row(idx,datacopy['glucose_level'], df_to_insert)
-                datacopy['glucose_level'] = datacopy_glucose
+                # létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
+                df_to_insert = create_increasing_rows(missing_amount, prev_ts,
+                                                          avgs[avg_index])
+                # beszúrjuk az új dataframeünket az eredetibe
+                data['glucose_level'] = insert_row(idx, data['glucose_level'], df_to_insert)
         prev_ts = ts
-    return datacopy
+    return data
 
 
 def avg_calculator(data: dict[str, pd.DataFrame]):
@@ -152,47 +190,25 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
     glucose_level_average = []
-    cleaned_data['glucose_level']['value']= cleaned_data['glucose_level']['value'].astype(int)
+    cleaned_data['glucose_level']['value'] = cleaned_data['glucose_level']['value'].astype(int)
     current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
     last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
     while current_day <= last_day:
+
+        # Van 1 nem létező napunk 544-esben 2027-05-24 nap missing (: ezért NaN-t ad vissza...
         next_day = current_day + pd.Timedelta(1, 'd')
 
-        glucose_level_count=cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts']>=current_day]
-        glucose_level_count=glucose_level_count[glucose_level_count['ts']< next_day]
-        average=np.sum(glucose_level_count['value'])/glucose_level_count.shape[0]
+        glucose_level_count = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
+        glucose_level_count = glucose_level_count[glucose_level_count['ts'] < next_day]
+        average = math.floor(np.sum(glucose_level_count['value']) / glucose_level_count.shape[0])
         glucose_level_average.append(average)
         current_day = next_day
     return glucose_level_average
 
 
-def last_existing_value(data, time_step: pd.Timedelta):
-    prev_ts = None
-    prevTimeStep=False
-    ts_dict= {'last_existing_before_hole': [] ,"last_existing_before_hole_index": [], "first_existing_after_hole": [],"first_existing_after_hole_index": [] }
-    for ts in data['glucose_level']['ts']:
-        if prev_ts is not None:
-            dt = ts - prev_ts
-            if dt == time_step or dt < time_step:
-                prevTimeStep=True
-            elif dt > (time_step * 1.5) and prevTimeStep==True:
-                ts_dict['last_existing_before_hole'].append(prev_ts)
-                ts_dict['last_existing_before_hole_index'].append(find_index(data,prev_ts))
-                ts_dict['first_existing_after_hole'].append(ts)
-                ts_dict['first_existing_after_hole_index'].append(find_index(data,ts))
-        prev_ts=ts
-    return ts_dict
-
-def find_index(data,timespan):
-    idx=-1
-    for ts in data['glucose_level']['ts']:
-        idx=idx+1
-        if timespan == ts:
-            return idx
-
-
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
+    #data, patient_data = load(TRAIN2_552_PATH)
     data, patient_data = load(TRAIN2_544_PATH)
-    values=last_existing_value(data,pd.Timedelta(5, 'm'))
-    print(values)
-
+    filled_data = fill_start_glucose_level_data(data, pd.Timedelta(5, 'm'))
+    filled_data = fill_glucose_level_data(filled_data, pd.Timedelta(5, 'm'))
+    print(filled_data['glucose_level'])
