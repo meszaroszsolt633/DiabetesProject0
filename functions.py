@@ -168,19 +168,25 @@ def fill_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedel
     avgs = avg_calculator(data)
     avg_index = 0
     prev_ts = None
+    #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
+    #amivel a beszúrást oldjuk meg. (ha beszúrunk 5 elemet a 65 index után, a 66. elem a régi 66. elem lesz
+    # nem pedig az új beszúrt)
+    corrector = 0
     for idx, ts in enumerate(data['glucose_level']['ts']):
         if prev_ts is not None:
             dt = ts - prev_ts
             if ts.day != prev_ts.day:
                 avg_index += 1
-            if dt >= time_step + time_step:
+            if pd.Timedelta(1,'d') > dt >= time_step + time_step:
                 # megnézzük mennyi hiányzik
                 missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds()) - 1
+
                 # létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
                 df_to_insert = create_increasing_rows(missing_amount, prev_ts,
                                                           avgs[avg_index])
                 # beszúrjuk az új dataframeünket az eredetibe
-                data['glucose_level'] = insert_row(idx, data['glucose_level'], df_to_insert)
+                data['glucose_level'] = insert_row(idx+corrector, data['glucose_level'], df_to_insert)
+                corrector += missing_amount
         prev_ts = ts
     return data
 
@@ -200,8 +206,9 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
 
         glucose_level_count = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
         glucose_level_count = glucose_level_count[glucose_level_count['ts'] < next_day]
-        average = math.floor(np.sum(glucose_level_count['value']) / glucose_level_count.shape[0])
-        glucose_level_average.append(average)
+        average = np.sum(glucose_level_count['value']) / glucose_level_count.shape[0]
+        if not math.isnan(float(average)):
+            glucose_level_average.append(math.floor(average))
         current_day = next_day
     return glucose_level_average
 
