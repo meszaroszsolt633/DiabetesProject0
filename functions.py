@@ -1,6 +1,7 @@
 import math
 import ntpath
 from xml_read import *
+from xml_write import *
 from defines import *
 import pandas as pd
 import numpy as np
@@ -214,8 +215,9 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    #data, patient_data = load(TRAIN2_552_PATH)
-    data, patient_data = load(TRAIN2_544_PATH)
-    filled_data = fill_start_glucose_level_data(data, pd.Timedelta(5, 'm'))
-    filled_data = fill_glucose_level_data(filled_data, pd.Timedelta(5, 'm'))
-    print(filled_data['glucose_level'])
+    for filepaths in ALL_FILE_PATHS:
+        data, patient_data = load(filepaths)
+        stringpath = filepath_to_string(filepaths)
+        filled_data = fill_start_glucose_level_data(data, pd.Timedelta(5, 'm'))
+        filled_data = fill_glucose_level_data(filled_data, pd.Timedelta(5, 'm'))
+        write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
