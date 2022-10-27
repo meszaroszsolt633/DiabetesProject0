@@ -47,6 +47,24 @@ def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> d
 
     return counts
 
+def missing_glucose_level_data(data):
+    value=0
+    current_day = pd.to_datetime(data['glucose_level']['ts'].iloc[0].date())
+    last_day = pd.to_datetime(data['glucose_level']['ts'].iloc[-1].date())
+    days=abs((last_day-current_day).days)+1
+    glucose_value_max=days*288
+    for glucoselevel in data['glucose_level']['ts']:
+        value=value+1
+    return value,glucose_value_max
+
+
+def print_stats():
+    for filepaths in ALL_FILE_PATHS:
+        data, patient_data = load(filepaths)
+        actual,max=missing_glucose_level_data(data)
+        percentage=actual/max*100
+        print(filepaths,': ',actual,'/',max,' Percentage:',percentage,'%')
+
 
 def get_file_missing_data_statistics(data: dict[str, pd.DataFrame]):
     statistics_result = {}
@@ -322,5 +340,5 @@ def write_all_cleaned_xml_continuous():
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    write_all_cleaned_xml_continuous()
+    print_stats()
 
