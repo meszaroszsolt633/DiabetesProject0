@@ -117,7 +117,7 @@ def insert_row(idx, df, df_insert):
     return df
 
 
-def create_increasing_rows(amount, datetime, avg):
+def create_increasing_rows_fixed(amount, datetime, avg):
     rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
     next_datetime = datetime
 
@@ -128,7 +128,7 @@ def create_increasing_rows(amount, datetime, avg):
     return rows
 
 
-def create_decreasing_rows(amount, datetime, avg):
+def create_decreasing_rows_fixed(amount, datetime, avg):
     rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
     prev_datetime = datetime
 
@@ -138,7 +138,39 @@ def create_decreasing_rows(amount, datetime, avg):
         prev_datetime += pd.Timedelta(5, 'm')
     return rows
 
-def fill_start_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
+
+def create_increasing_rows_continuous(amount, datetime,value_before_gap,value_after_gap):
+    rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
+    next_datetime = datetime
+    value_before_gap=int(value_before_gap)
+    value_after_gap_gap = int(value_after_gap)
+    segment = (value_after_gap_gap - value_before_gap) / amount
+    value = value_before_gap
+
+    for i in range(0, amount):
+        next_datetime += pd.Timedelta(5, 'm')
+        dt = pd.to_datetime(next_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
+        rows.loc[i] = pd.Series({'ts': dt, 'value': value})
+        value = value + segment
+    return rows
+
+
+def create_decreasing_rows_continuous(amount, datetime,avg,valueaftergap):
+    valueaftergap=int(valueaftergap)
+    rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
+    prev_datetime = datetime
+    segment=(valueaftergap-avg)/amount
+    value=avg
+
+    for i in range(0, amount):
+        dt = pd.to_datetime(prev_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
+        rows.loc[i] = pd.Series({'ts': dt, 'value': value})
+        prev_datetime += pd.Timedelta(5, 'm')
+        value=value+segment
+    return rows
+
+
+def fill_start_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
 
 
@@ -159,13 +191,14 @@ def fill_start_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.T
     if first_amount > pd.Timedelta(10, 'm'):
         # megnézzük mennyi elem hiányzik
         first_amount_missing = math.floor(first_amount.total_seconds() / time_step.total_seconds()) - 1
-        df_to_insert = create_decreasing_rows(first_amount_missing, hour_zero, avgs[0])
+        df_to_insert = create_decreasing_rows_continuous(first_amount_missing, hour_zero, avgs[0],data['glucose_level']['value'][0])
         data['glucose_level'] = insert_row(0, data['glucose_level'], df_to_insert)
 
     return data
     ######################################
 
-def fill_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
+
+def fill_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
     avg_index = 0
     prev_ts = None
@@ -183,13 +216,69 @@ def fill_glucose_level_data(data: dict[str, pd.DataFrame], time_step: pd.Timedel
                 missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds()) - 1
 
                 # létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
-                df_to_insert = create_increasing_rows(missing_amount, prev_ts,
+                df_to_insert = create_increasing_rows_continuous(missing_amount, prev_ts,
+                                                          data['glucose_level']['value'][idx+corrector-1],data['glucose_level']['value'][idx+corrector+1])
+                # beszúrjuk az új dataframeünket az eredetibe
+                data['glucose_level'] = insert_row(idx+corrector, data['glucose_level'], df_to_insert)
+                corrector += missing_amount
+        prev_ts = ts
+    return data
+
+
+def fill_start_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
+    avgs = avg_calculator(data)
+
+
+    # mindenekelőtt megnézzük hogy az első elem 0 óra környékén van e
+    first_timestamp = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
+                                   month=data['glucose_level']['ts'][0].month,
+                                   day=data['glucose_level']['ts'][0].day,
+                                   hour=data['glucose_level']['ts'][0].hour,
+                                   minute=data['glucose_level']['ts'][0].minute,
+                                   second=data['glucose_level']['ts'][0].second)
+    # kimentjük a 0 órát egy változóba
+    hour_zero = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
+                             month=data['glucose_level']['ts'][0].month,
+                             day=data['glucose_level']['ts'][0].day,
+                             hour=0, minute=0, second=0)
+    # megnézzük a különbséget
+    first_amount = first_timestamp - hour_zero
+    if first_amount > pd.Timedelta(10, 'm'):
+        # megnézzük mennyi elem hiányzik
+        first_amount_missing = math.floor(first_amount.total_seconds() / time_step.total_seconds()) - 1
+        df_to_insert = create_decreasing_rows_fixed(first_amount_missing, hour_zero, avgs[0])
+        data['glucose_level'] = insert_row(0, data['glucose_level'], df_to_insert)
+
+    return data
+    ######################################
+
+def fill_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
+    avgs = avg_calculator(data)
+    avg_index = 0
+    prev_ts = None
+    #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
+    #amivel a beszúrást oldjuk meg. (ha beszúrunk 5 elemet a 65 index után, a 66. elem a régi 66. elem lesz
+    # nem pedig az új beszúrt)
+    corrector = 0
+    for idx, ts in enumerate(data['glucose_level']['ts']):
+        if prev_ts is not None:
+            dt = ts - prev_ts
+            if ts.day != prev_ts.day:
+                avg_index += 1
+            if pd.Timedelta(1,'d') > dt >= time_step + time_step:
+                # megnézzük mennyi hiányzik
+                missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds()) - 1
+
+                # létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
+                df_to_insert = create_increasing_rows_fixed(missing_amount, prev_ts,
                                                           avgs[avg_index])
                 # beszúrjuk az új dataframeünket az eredetibe
                 data['glucose_level'] = insert_row(idx+corrector, data['glucose_level'], df_to_insert)
                 corrector += missing_amount
         prev_ts = ts
     return data
+
+
 
 
 def avg_calculator(data: dict[str, pd.DataFrame]):
@@ -213,11 +302,25 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
         current_day = next_day
     return glucose_level_average
 
-
-if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
+def write_all_cleaned_xml_fixed():
     for filepaths in ALL_FILE_PATHS:
         data, patient_data = load(filepaths)
         stringpath = filepath_to_string(filepaths)
-        filled_data = fill_start_glucose_level_data(data, pd.Timedelta(5, 'm'))
-        filled_data = fill_glucose_level_data(filled_data, pd.Timedelta(5, 'm'))
+        filled_data = fill_start_glucose_level_data_fixed(data, pd.Timedelta(5, 'm'))
+        filled_data = fill_glucose_level_data_fixed(filled_data, pd.Timedelta(5, 'm'))
         write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
+
+
+def write_all_cleaned_xml_continuous():
+    for filepaths in ALL_FILE_PATHS:
+        data, patient_data = load(filepaths)
+        stringpath = filepath_to_string(filepaths)
+        filled_data = fill_start_glucose_level_data_continuous(data, pd.Timedelta(5, 'm'))
+        filled_data = fill_glucose_level_data_continuous(filled_data, pd.Timedelta(5, 'm'))
+        write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
+
+
+
+if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
+    write_all_cleaned_xml_continuous()
+
