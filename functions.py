@@ -66,7 +66,7 @@ def print_stats():
         print(filepaths,': ',actual,'/',max,' Percentage:',percentage,'%')
 
 
-def get_file_missing_data_statistics(data: dict[str, pd.DataFrame]):
+def get_file_missing_glucose_data_statistics(data: dict[str, pd.DataFrame]):
     statistics_result = {}
     for data_type in data:
         time_step_found = False
@@ -107,7 +107,7 @@ def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_c
         day = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
         day = day[day['ts'] < next_day]
 
-        if day.empty or get_file_missing_data_statistics({'glucose_level': day})['glucose_level'][
+        if day.empty or get_file_missing_glucose_data_statistics({'glucose_level': day})['glucose_level'][
             'missing'] > missing_count_threshold:
             for measurement_type in cleaned_data.keys():
                 # if any timestamp is in the day that is to be thrown away, throw away the entire event
@@ -123,7 +123,62 @@ def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_c
 
     return cleaned_data
 
+def get_file_missing_eat_data_statistics(data: dict[str, pd.DataFrame]):
+    statistics_result = {}
+    for data_type in data:
+        time_step_found = False
+        i = 0
+        delta = None
+        prev_time = None
 
+        if data[data_type].columns.__contains__('ts'):
+            for time in data[data_type]['ts']:
+                if prev_time is not None:
+                    delta = time - prev_time
+                    if delta == pd.Timedelta(5, 'm'):
+                        time_step_found = True
+                        break
+
+                prev_time = time
+
+                i += 1
+
+        if time_step_found:
+            statistics_result[data_type] = count_missing_data(data[data_type], delta)
+
+    return statistics_result
+
+
+def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_count_threshold) -> dict[
+    str, pd.DataFrame]:
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
+
+    current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
+    last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
+
+    while current_day <= last_day:
+        next_day = current_day + pd.Timedelta(1, 'd')
+
+        day = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
+        day = day[day['ts'] < next_day]
+
+        if day.empty or get_file_missing_eat_data_statistics({'glucose_level': day})['glucose_level'][
+            'missing'] > missing_count_threshold:
+            for measurement_type in cleaned_data.keys():
+                # if any timestamp is in the day that is to be thrown away, throw away the entire event
+                for measurement_parameter in cleaned_data[measurement_type]:
+                    if types[measurement_type][measurement_parameter] == 'datetime':
+                        tdf = cleaned_data[measurement_type]
+                        day_data = tdf[tdf[measurement_parameter] >= current_day]
+                        day_data = day_data[measurement_parameter][day_data[measurement_parameter] < next_day]
+
+                        cleaned_data[measurement_type] = cleaned_data[measurement_type].drop(index=day_data.index)
+
+        current_day = next_day
+
+    return cleaned_data
 
 def insert_row(idx, df, df_insert):
     dfA = df.iloc[:idx, ]
@@ -218,6 +273,7 @@ def fill_start_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time
 
 def fill_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
+    data = fill_start_glucose_level_data_continuous(data, time_step)
     avg_index = 0
     prev_ts = None
     #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
@@ -272,6 +328,7 @@ def fill_start_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step
 
 def fill_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
+    data = fill_start_glucose_level_data_fixed(data, time_step)
     avg_index = 0
     prev_ts = None
     #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
