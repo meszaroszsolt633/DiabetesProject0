@@ -123,6 +123,10 @@ def drop_days_with_missing_glucose_data(data: dict[str, pd.DataFrame], missing_c
 
     return cleaned_data
 
+
+
+#nem biztos h szükség van rá ||
+#                            VV
 def get_file_missing_eat_data_statistics(data: dict[str, pd.DataFrame]):
     statistics_result = {}
     for data_type in data:
@@ -149,23 +153,23 @@ def get_file_missing_eat_data_statistics(data: dict[str, pd.DataFrame]):
     return statistics_result
 
 
-def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_count_threshold) -> dict[
+def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_threshold) -> dict[
     str, pd.DataFrame]:
     cleaned_data = {}
+    #deepcopyzzuk
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
-
-    current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
-    last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
-
+    #kimentjük a napokat
+    current_day = pd.to_datetime(cleaned_data['meal']['ts'].iloc[0].date())
+    last_day = pd.to_datetime(cleaned_data['meal']['ts'].iloc[-1].date())
+    #végig megyünk az összes napon
     while current_day <= last_day:
         next_day = current_day + pd.Timedelta(1, 'd')
-
-        day = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
+        #kimentjük mindig az adott nap adatait a daybe
+        day = cleaned_data['meal'][cleaned_data['meal']['ts'] >= current_day]
         day = day[day['ts'] < next_day]
-
-        if day.empty or get_file_missing_eat_data_statistics({'glucose_level': day})['glucose_level'][
-            'missing'] > missing_count_threshold:
+        #ha a day üres, vagy kevesebb adat van benne mint a threshold akkor kuka
+        if day.empty or len(day) < missing_eat_threshold:
             for measurement_type in cleaned_data.keys():
                 # if any timestamp is in the day that is to be thrown away, throw away the entire event
                 for measurement_parameter in cleaned_data[measurement_type]:
@@ -175,7 +179,7 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_count
                         day_data = day_data[measurement_parameter][day_data[measurement_parameter] < next_day]
 
                         cleaned_data[measurement_type] = cleaned_data[measurement_type].drop(index=day_data.index)
-
+        #váltunk a kövi napra
         current_day = next_day
 
     return cleaned_data
@@ -397,5 +401,14 @@ def write_all_cleaned_xml_continuous():
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    print_stats()
+    data, patient_data = load(TRAIN2_544_PATH)
+    current_day = pd.to_datetime(data['meal']['ts'].iloc[0].date())
+    last_day = pd.to_datetime(data['meal']['ts'].iloc[-1].date())
+    next_day = current_day + pd.Timedelta(1, 'd')
+
+    day = data['meal'][data['meal']['ts'] >= current_day]
+    day = day[day['ts'] < next_day]
+    print(len(day))
+    output = get_file_missing_glucose_data_statistics(data)
+    print(output)
 
