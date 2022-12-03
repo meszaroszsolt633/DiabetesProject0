@@ -86,7 +86,7 @@ def load(file_path: str) -> tuple[dict[str, pd.DataFrame], dict[str, str]]:
 
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    data,patient_data = load(TEST2_540_PATH)
+    data,patient_data = load(TRAIN2_540_PATH)
     print(data)
 
 

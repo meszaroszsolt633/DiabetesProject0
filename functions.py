@@ -249,42 +249,47 @@ def create_decreasing_rows_continuous(amount, datetime,avg,valueaftergap):
 
 def fill_start_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
-
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
 
     # mindenekelőtt megnézzük hogy az első elem 0 óra környékén van e
-    first_timestamp = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
-                                   month=data['glucose_level']['ts'][0].month,
-                                   day=data['glucose_level']['ts'][0].day,
-                                   hour=data['glucose_level']['ts'][0].hour,
-                                   minute=data['glucose_level']['ts'][0].minute,
-                                   second=data['glucose_level']['ts'][0].second)
+    first_timestamp = pd.Timestamp(year=cleaned_data['glucose_level']['ts'][0].year,
+                                   month=cleaned_data['glucose_level']['ts'][0].month,
+                                   day=cleaned_data['glucose_level']['ts'][0].day,
+                                   hour=cleaned_data['glucose_level']['ts'][0].hour,
+                                   minute=cleaned_data['glucose_level']['ts'][0].minute,
+                                   second=cleaned_data['glucose_level']['ts'][0].second)
     # kimentjük a 0 órát egy változóba
-    hour_zero = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
-                             month=data['glucose_level']['ts'][0].month,
-                             day=data['glucose_level']['ts'][0].day,
+    hour_zero = pd.Timestamp(year=cleaned_data['glucose_level']['ts'][0].year,
+                             month=cleaned_data['glucose_level']['ts'][0].month,
+                             day=cleaned_data['glucose_level']['ts'][0].day,
                              hour=0, minute=0, second=0)
     # megnézzük a különbséget
     first_amount = first_timestamp - hour_zero
     if first_amount > pd.Timedelta(10, 'm'):
         # megnézzük mennyi elem hiányzik
         first_amount_missing = math.floor(first_amount.total_seconds() / time_step.total_seconds()) - 1
-        df_to_insert = create_decreasing_rows_continuous(first_amount_missing, hour_zero, avgs[0],data['glucose_level']['value'][0])
-        data['glucose_level'] = insert_row(0, data['glucose_level'], df_to_insert)
+        df_to_insert = create_decreasing_rows_continuous(first_amount_missing, hour_zero, avgs[0],cleaned_data['glucose_level']['value'][0])
+        cleaned_data['glucose_level'] = insert_row(0, cleaned_data['glucose_level'], df_to_insert)
 
-    return data
+    return cleaned_data
     ######################################
 
 
 def fill_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
-    data = fill_start_glucose_level_data_continuous(data, time_step)
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
+    cleaned_data = fill_start_glucose_level_data_continuous(cleaned_data, time_step)
     avg_index = 0
     prev_ts = None
     #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
     #amivel a beszúrást oldjuk meg. (ha beszúrunk 5 elemet a 65 index után, a 66. elem a régi 66. elem lesz
     # nem pedig az új beszúrt)
     corrector = 0
-    for idx, ts in enumerate(data['glucose_level']['ts']):
+    for idx, ts in enumerate(cleaned_data['glucose_level']['ts']):
         if prev_ts is not None:
             dt = ts - prev_ts
             if ts.day != prev_ts.day:
@@ -295,17 +300,19 @@ def fill_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step:
 
                 # létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
                 df_to_insert = create_increasing_rows_continuous(missing_amount, prev_ts,
-                                                          data['glucose_level']['value'][idx+corrector-1],data['glucose_level']['value'][idx+corrector+1])
+                                                          cleaned_data['glucose_level']['value'][idx+corrector-1],cleaned_data['glucose_level']['value'][idx+corrector+1])
                 # beszúrjuk az új dataframeünket az eredetibe
-                data['glucose_level'] = insert_row(idx+corrector, data['glucose_level'], df_to_insert)
+                cleaned_data['glucose_level'] = insert_row(idx+corrector, cleaned_data['glucose_level'], df_to_insert)
                 corrector += missing_amount
         prev_ts = ts
-    return data
+    return cleaned_data
 
 
 def fill_start_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
-
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
 
     # mindenekelőtt megnézzük hogy az első elem 0 óra környékén van e
     first_timestamp = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
@@ -327,12 +334,15 @@ def fill_start_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step
         df_to_insert = create_decreasing_rows_fixed(first_amount_missing, hour_zero, avgs[0])
         data['glucose_level'] = insert_row(0, data['glucose_level'], df_to_insert)
 
-    return data
+    return cleaned_data
     ######################################
 
 def fill_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
-    data = fill_start_glucose_level_data_fixed(data, time_step)
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
+    cleaned_data = fill_start_glucose_level_data_fixed(cleaned_data, time_step)
     avg_index = 0
     prev_ts = None
     #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
@@ -352,10 +362,10 @@ def fill_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.T
                 df_to_insert = create_increasing_rows_fixed(missing_amount, prev_ts,
                                                           avgs[avg_index])
                 # beszúrjuk az új dataframeünket az eredetibe
-                data['glucose_level'] = insert_row(idx+corrector, data['glucose_level'], df_to_insert)
+                cleaned_data['glucose_level'] = insert_row(idx+corrector, cleaned_data['glucose_level'], df_to_insert)
                 corrector += missing_amount
         prev_ts = ts
-    return data
+    return cleaned_data
 
 
 
@@ -399,16 +409,8 @@ def write_all_cleaned_xml_continuous():
         write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
 
 
-
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
     data, patient_data = load(TRAIN2_544_PATH)
-    current_day = pd.to_datetime(data['meal']['ts'].iloc[0].date())
-    last_day = pd.to_datetime(data['meal']['ts'].iloc[-1].date())
-    next_day = current_day + pd.Timedelta(1, 'd')
-
-    day = data['meal'][data['meal']['ts'] >= current_day]
-    day = day[day['ts'] < next_day]
-    print(len(day))
-    output = get_file_missing_glucose_data_statistics(data)
-    print(output)
+    filled_data = fill_glucose_level_data_continuous(data, pd.Timedelta(5,"m"))
+    print(filled_data)
 
