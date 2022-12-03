@@ -32,7 +32,6 @@ from typing import Union
 
 
 def load_xml(file_path: str) -> tuple[dict[str, dict[str, list[str]]], dict[str, str]]:
-
     xml_doc = ET.parse(file_path).getroot()
 
     converted_data: dict[str, dict[str, list[str]]] = {}
@@ -50,9 +49,6 @@ def load_xml(file_path: str) -> tuple[dict[str, dict[str, list[str]]], dict[str,
                 converted_data[measurement_type.tag][attribute].append(measurement.attrib[attribute])
 
     return converted_data, xml_doc.attrib
-
-
-
 
 
 def convert_to_pandas_dataframe(data: dict[str, dict[str, list[str]]]) -> dict[str, pd.DataFrame]:
@@ -79,16 +75,14 @@ def convert_to_pandas_dataframe(data: dict[str, dict[str, list[str]]]) -> dict[s
 
     return converted_data
 
+
 def load(file_path: str) -> tuple[dict[str, pd.DataFrame], dict[str, str]]:
     data, patient_data = load_xml(file_path)
     return convert_to_pandas_dataframe(data), patient_data
 
 
-
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    data,patient_data = load(TRAIN2_540_PATH)
+    data, patient_data = load(TRAIN2_540_PATH)
     print(data)
-
-
 
 # 40.0
