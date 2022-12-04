@@ -9,13 +9,14 @@ from tensorflow import keras
 from keras.models import Model
 from keras.layers import Input, LSTM
 from keras.layers import Dense
+from sklearn.preprocessing import StandardScaler
 
 
 def data_preparation(data: dict[str, pd.DataFrame], time_step: pd.Timedelta, missing_count_threshold,
                      missing_eat_threshold) -> dict[str, pd.DataFrame]:
     cleaned_data = drop_days_with_missing_glucose_data(data, missing_count_threshold)
     # cleaned_data = drop_days_with_missing_eat_data(cleaned_data, missing_eat_threshold)
-    cleaned_data = fill_glucose_level_data_continuous(cleaned_data, time_step)
+    # cleaned_data = fill_glucose_level_data_continuous(cleaned_data, time_step)
     return cleaned_data
 
 
@@ -41,15 +42,26 @@ def model(train_x):
 
 
 def train_test_split(glucose_data: pd.DataFrame):
+    cleaned_data = {}
+    for key in glucose_data.keys():
+        cleaned_data[key] = glucose_data[key].__deepcopy__()
+    cleaned_data = pd.DataFrame(cleaned_data)
+    x = cleaned_data.loc[:, ["ts"]].values
+    y = cleaned_data.loc[:, ["value"]].values
+    x = StandardScaler().fit_transform(X=x)
+    y = StandardScaler().fit_transform(y)
+    cleaned_data["ts"] = x
+    cleaned_data["value"] = y
     idx = round(len(glucose_data) * 0.8)
-    train_x = glucose_data[:idx]
-    test_x = glucose_data[idx:]
+    train_x = cleaned_data[:idx]
+    test_x = cleaned_data[idx:]
     return train_x, test_x
 
 
 # ctrl+alt+shift+L REFORMATS CODE
 
 if __name__ == "__main__":
-    data, patient_data = load(CLEANEDTRAIN2_544_PATH)
+    data, patient_data = load(TRAIN2_540_PATH)
     train, test = train_test_split(data["glucose_level"])
     history, model = model(train)
+    print(history)
