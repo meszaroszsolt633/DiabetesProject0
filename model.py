@@ -15,8 +15,10 @@ from sklearn.preprocessing import MinMaxScaler
 def data_preparation(data: dict[str, pd.DataFrame], time_step: pd.Timedelta, missing_count_threshold,
                      missing_eat_threshold) -> dict[str, pd.DataFrame]:
     cleaned_data = drop_days_with_missing_glucose_data(data, missing_count_threshold)
-    # cleaned_data = drop_days_with_missing_eat_data(cleaned_data, missing_eat_threshold)
-    # cleaned_data = fill_glucose_level_data_continuous(cleaned_data, time_step)
+    cleaned_data = drop_days_with_missing_eat_data(cleaned_data, missing_eat_threshold)
+    for key in cleaned_data.keys():
+        cleaned_data[key] = cleaned_data[key].reset_index(drop=True)
+    cleaned_data = fill_glucose_level_data_continuous(cleaned_data, time_step)
     return cleaned_data
 
 
@@ -37,7 +39,7 @@ def model(train_x, validX, validY, train_y, look_back):
     out2 = Dense(1)(x1)
     glucose_model = Model(inputs=[input1], outputs=[out2])
     glucose_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(0.001), metrics=["accuracy"])
-    history = glucose_model.fit(train_x,train_y, epochs=10, batch_size=look_back, verbose=1, shuffle=False, validation_data=(validX, validY))
+    history = glucose_model.fit(train_x,train_y, epochs=1000, batch_size=look_back, verbose=1, shuffle=False, validation_data=(validX, validY))
     return history, glucose_model
 
 
