@@ -9,6 +9,7 @@ from tensorflow import keras
 from keras.models import Model
 from keras.layers import Input, LSTM
 from keras.layers import Dense
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -81,3 +82,11 @@ if __name__ == "__main__":
     print(train.shape)
     history, model = model(trainX, validX, validY, trainY,  look_back)
     print(history)
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    epochs = 10
+    plt.plot(epochs, loss, 'bo', label='Training loss')
+    plt.plot(epochs, val_loss, 'b', label='Validation loss')
+    plt.title('Training and validation loss')
+    plt.legend()
+    plt.show()
