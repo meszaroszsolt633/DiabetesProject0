@@ -160,8 +160,8 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_t
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
     #kimentjük a napokat
-    current_day = pd.to_datetime(cleaned_data['meal']['ts'].iloc[0].date())
-    last_day = pd.to_datetime(cleaned_data['meal']['ts'].iloc[-1].date())
+    current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
+    last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
     #végig megyünk az összes napon
     while current_day <= last_day:
         next_day = current_day + pd.Timedelta(1, 'd')
@@ -181,7 +181,6 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_t
                         cleaned_data[measurement_type] = cleaned_data[measurement_type].drop(index=day_data.index)
         #váltunk a kövi napra
         current_day = next_day
-
     return cleaned_data
 
 def insert_row(idx, df, df_insert):
@@ -192,6 +191,7 @@ def insert_row(idx, df, df_insert):
     df = df.reset_index(drop=True)
 
     return df
+
 
 
 def create_increasing_rows_fixed(amount, datetime, avg):
@@ -228,7 +228,7 @@ def create_increasing_rows_continuous(amount, datetime,value_before_gap,value_af
         next_datetime += pd.Timedelta(5, 'm')
         dt = pd.to_datetime(next_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
         rows.loc[i] = pd.Series({'ts': dt, 'value': value})
-        value = value + segment
+        value = int(value + segment)
     return rows
 
 
@@ -243,7 +243,7 @@ def create_decreasing_rows_continuous(amount, datetime,avg,valueaftergap):
         dt = pd.to_datetime(prev_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
         rows.loc[i] = pd.Series({'ts': dt, 'value': value})
         prev_datetime += pd.Timedelta(5, 'm')
-        value=value+segment
+        value=int(value+segment)
     return rows
 
 
