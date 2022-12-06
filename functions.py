@@ -193,6 +193,7 @@ def insert_row(idx, df, df_insert):
     return df
 
 
+
 def create_increasing_rows_fixed(amount, datetime, avg):
     rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
     next_datetime = datetime
