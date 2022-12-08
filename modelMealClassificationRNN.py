@@ -170,8 +170,8 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     validX,validY = create_dataset(features_validation_x,validY_np, lookback)
 
 
-    trainX = np.reshape(trainX.shape[0], trainX.shape[1], 1)
-    validX = np.reshape(validX.shape[0], validX.shape[1], 1)
+   #trainX = np.reshape(trainX.shape[0], trainX.shape[1], 1)
+   #validX = np.reshape(validX.shape[0], validX.shape[1], 1)
 
     print("trainX:",trainX.shape)
     print("trainY:",trainY.shape)
