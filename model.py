@@ -35,8 +35,8 @@ def model(train_x, validX, validY, train_y, look_back):
     input1 = Input(shape=(1,look_back))
     x11 = LSTM(units=256, activation="relu", return_sequences=False)
     x31 = Dense(units=32, activation="relu")
-    y21 = Dropout(0.1)
-    x41 = Dense(units=12, activation="relu")
+    y21 = Dropout(0.05)
+    x41 = Dense(units=10, activation="relu")
 
     x12 = x11(input1)
 
