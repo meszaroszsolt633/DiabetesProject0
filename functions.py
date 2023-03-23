@@ -165,7 +165,8 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_t
     current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
     last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
     #végig megyünk az összes napon
-    while current_day <= last_day:
+    if(bool(cleaned_data)==False):
+        while current_day <= last_day:
             next_day = current_day + pd.Timedelta(1, 'd')
             # kimentjük mindig az adott nap adatait a daybe
             day = cleaned_data['meal'][cleaned_data['meal']['ts'] >= current_day]
