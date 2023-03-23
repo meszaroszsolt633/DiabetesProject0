@@ -5,6 +5,8 @@ from xml_write import *
 from defines import *
 import pandas as pd
 import numpy as np
+import xml.dom.minidom as minidom
+from model import *
 
 
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
@@ -164,23 +166,23 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_t
     last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
     #végig megyünk az összes napon
     while current_day <= last_day:
-        next_day = current_day + pd.Timedelta(1, 'd')
-        #kimentjük mindig az adott nap adatait a daybe
-        day = cleaned_data['meal'][cleaned_data['meal']['ts'] >= current_day]
-        day = day[day['ts'] < next_day]
-        #ha a day üres, vagy kevesebb adat van benne mint a threshold akkor kuka
-        if day.empty or len(day) < missing_eat_threshold:
-            for measurement_type in cleaned_data.keys():
-                # if any timestamp is in the day that is to be thrown away, throw away the entire event
-                for measurement_parameter in cleaned_data[measurement_type]:
-                    if types[measurement_type][measurement_parameter] == 'datetime':
-                        tdf = cleaned_data[measurement_type]
-                        day_data = tdf[tdf[measurement_parameter] >= current_day]
-                        day_data = day_data[measurement_parameter][day_data[measurement_parameter] < next_day]
+            next_day = current_day + pd.Timedelta(1, 'd')
+            # kimentjük mindig az adott nap adatait a daybe
+            day = cleaned_data['meal'][cleaned_data['meal']['ts'] >= current_day]
+            day = day[day['ts'] < next_day]
+            # ha a day üres, vagy kevesebb adat van benne mint a threshold akkor kuka
+            if day.empty or len(day) < missing_eat_threshold:
+                for measurement_type in cleaned_data.keys():
+                    # if any timestamp is in the day that is to be thrown away, throw away the entire event
+                    for measurement_parameter in cleaned_data[measurement_type]:
+                        if types[measurement_type][measurement_parameter] == 'datetime':
+                            tdf = cleaned_data[measurement_type]
+                            day_data = tdf[tdf[measurement_parameter] >= current_day]
+                            day_data = day_data[measurement_parameter][day_data[measurement_parameter] < next_day]
 
-                        cleaned_data[measurement_type] = cleaned_data[measurement_type].drop(index=day_data.index)
-        #váltunk a kövi napra
-        current_day = next_day
+                            cleaned_data[measurement_type] = cleaned_data[measurement_type].drop(index=day_data.index)
+            # váltunk a kövi napra
+            current_day = next_day
     return cleaned_data
 
 def insert_row(idx, df, df_insert):
@@ -408,9 +410,45 @@ def write_all_cleaned_xml_continuous():
         filled_data = fill_glucose_level_data_continuous(filled_data, pd.Timedelta(5, 'm'))
         write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
 
+def count_glucose_level_data(threshholdnumber: int,mealcount: int):
+    #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
+    root="<root>Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount)
+    for filepaths in ALL_FILE_PATHS:
+        data, patient_data = load(filepaths)
+        stringpath = filepath_to_string(filepaths)
+        cleaned_data = drop_days_with_missing_glucose_data(data, threshholdnumber)
+        cleaned_data = drop_days_with_missing_eat_data(cleaned_data, mealcount)
+        for key in cleaned_data.keys():
+            cleaned_data[key] = cleaned_data[key].reset_index(drop=True)
+        #print("{} Glucose level data amount: {} / {} ".format(stringpath,len(cleaned_data['glucose_level']),len(data['glucose_level'])))
+        root+="<child>{} : Glucose level data amount: {} / {}</child>".format(stringpath,len(cleaned_data['glucose_level']),len(data['glucose_level']))
+    root+="</root>"
+
+    #tree.write("Patients.xml", encoding="utf-8", xml_declaration=True, method="xml",pretty_print=True)
+    dom = minidom.parseString(root)
+    pretty_xml_str = dom.toprettyxml()
+    filename="Patients{}-{}.xml".format(threshholdnumber,mealcount)
+    with open(filename, "w") as f:
+        f.write(pretty_xml_str)
+
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    data, patient_data = load(TRAIN2_544_PATH)
-    filled_data = fill_glucose_level_data_continuous(data, pd.Timedelta(5,"m"))
-    print(filled_data)
+    #filled_data = fill_glucose_level_data_continuous(data, pd.Timedelta(5,"m"))
+    #print(filled_data)
+    count_glucose_level_data(1,3)
+    count_glucose_level_data(1, 5)
+    count_glucose_level_data(1, 10)
+    count_glucose_level_data(5, 3)
+    count_glucose_level_data(5, 5)
+    count_glucose_level_data(5, 10)
+    count_glucose_level_data(10, 3)
+    count_glucose_level_data(10, 5)
+    count_glucose_level_data(10, 10)
+    count_glucose_level_data(20, 3)
+    count_glucose_level_data(20, 5)
+    count_glucose_level_data(20, 10)
+    count_glucose_level_data(30, 3)
+    count_glucose_level_data(30, 5)
+    count_glucose_level_data(30, 10)
+
 

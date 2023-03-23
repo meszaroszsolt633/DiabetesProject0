@@ -1,13 +1,13 @@
 import pandas as pd
 import xml.etree.ElementTree as ET
-
+import xml.dom.minidom as minidom
 from defines import *
 from typing import Union
 
 
 # ID
 # Weight: 99 is a placeholder, the actual data is unavailable
-# glucose_level: continouse monitoring data every 5 minutes
+# glucose_level: continous monitoring data every 5 minutes
 # finger_stick: glucose values obtained by the patient
 # basal: background insulin
 # temp_basal: temporal basal insulin; 0= suspended
