@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<root>
+	Glucose level threshold number: 5 | Meal threshold number: 10
+	<child>559-ws-trainingCleaned.xml : Glucose level data amount: 5022 / 10796</child>
+	<child>563-ws-trainingCleaned.xml : Glucose level data amount: 10020 / 12124</child>
+	<child>570-ws-trainingCleaned.xml : Glucose level data amount: 7144 / 10982</child>
+	<child>575-ws-trainingCleaned.xml : Glucose level data amount: 3612 / 11866</child>
+	<child>588-ws-trainingCleaned.xml : Glucose level data amount: 10965 / 12640</child>
+	<child>591-ws-trainingCleaned.xml : Glucose level data amount: 7875 / 10847</child>
+	<child>540-ws-trainingCleaned.xml : Glucose level data amount: 7888 / 11947</child>
+	<child>544-ws-trainingCleaned.xml : Glucose level data amount: 6967 / 10623</child>
+	<child>552-ws-trainingCleaned.xml : Glucose level data amount: 4582 / 9080</child>
+	<child>567-ws-trainingCleaned.xml : Glucose level data amount: 1664 / 10858</child>
+	<child>596-ws-trainingCleaned.xml : Glucose level data amount: 8394 / 10877</child>
+	<child>559-ws-testingCleaned.xml : Glucose level data amount: 803 / 2514</child>
+	<child>563-ws-testingCleaned.xml : Glucose level data amount: 2570 / 2570</child>
+	<child>570-ws-testingCleaned.xml : Glucose level data amount: 858 / 2745</child>
+	<child>575-ws-testingCleaned.xml : Glucose level data amount: 1273 / 2590</child>
+	<child>588-ws-testingCleaned.xml : Glucose level data amount: 2304 / 2791</child>
+	<child>591-ws-testingCleaned.xml : Glucose level data amount: 2271 / 2760</child>
+	<child>540-ws-testingCleaned.xml : Glucose level data amount: 1616 / 2896</child>
+	<child>544-ws-testingCleaned.xml : Glucose level data amount: 2240 / 2716</child>
+	<child>552-ws-testingCleaned.xml : Glucose level data amount: 961 / 2364</child>
+	<child>567-ws-testingCleaned.xml : Glucose level data amount: 464 / 2389</child>
+	<child>584-ws-testingCleaned.xml : Glucose level data amount: 777 / 2665</child>
+	<child>596-ws-testingCleaned.xml : Glucose level data amount: 1563 / 2743</child>
+</root>
