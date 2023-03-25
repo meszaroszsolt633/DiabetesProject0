@@ -1,7 +1,7 @@
 import os
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-
+#*
 TEST_DIR = os.path.join(ROOT_DIR, 'Test')
 TEST2_DIR = os.path.join(ROOT_DIR, 'Test2')
 TRAIN_DIR = os.path.join(ROOT_DIR, 'Train')
@@ -12,6 +12,7 @@ CLEANEDTRAIN_DIR = os.path.join(ROOT_DIR, 'CleanedTrain')
 CLEANEDTRAIN2_DIR = os.path.join(ROOT_DIR, 'CleanedTrain2')
 CLEANED_DATA_DIR = os.path.join(ROOT_DIR, 'Cleaned Data')
 CLEANED_DATA_DIR2 = os.path.join(ROOT_DIR, 'Cleaned Data2')
+
 
 TRAIN_559_PATH = os.path.join(TRAIN_DIR, '559-ws-training.xml')
 TRAIN_563_PATH = os.path.join(TRAIN_DIR, '563-ws-training.xml')

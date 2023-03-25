@@ -165,7 +165,7 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_t
     current_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[0].date())
     last_day = pd.to_datetime(cleaned_data['glucose_level']['ts'].iloc[-1].date())
     #végig megyünk az összes napon
-    if(bool(cleaned_data)==False):
+    if(cleaned_data['meal'].empty == False):
         while current_day <= last_day:
             next_day = current_day + pd.Timedelta(1, 'd')
             # kimentjük mindig az adott nap adatait a daybe
@@ -184,7 +184,12 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_t
                             cleaned_data[measurement_type] = cleaned_data[measurement_type].drop(index=day_data.index)
             # váltunk a kövi napra
             current_day = next_day
-    return cleaned_data
+        return cleaned_data
+    else:
+        for keys in cleaned_data.keys():
+            cleaned_data[keys] = cleaned_data[keys].iloc[0:0]
+        return cleaned_data
+
 
 def insert_row(idx, df, df_insert):
     dfA = df.iloc[:idx, ]
@@ -370,9 +375,6 @@ def fill_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.T
         prev_ts = ts
     return cleaned_data
 
-
-
-
 def avg_calculator(data: dict[str, pd.DataFrame]):
     cleaned_data = {}
     for key in data.keys():
@@ -436,20 +438,23 @@ def count_glucose_level_data(threshholdnumber: int,mealcount: int):
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
     #filled_data = fill_glucose_level_data_continuous(data, pd.Timedelta(5,"m"))
     #print(filled_data)
-    count_glucose_level_data(1,3)
-    count_glucose_level_data(1, 5)
-    count_glucose_level_data(1, 10)
-    count_glucose_level_data(5, 3)
-    count_glucose_level_data(5, 5)
-    count_glucose_level_data(5, 10)
-    count_glucose_level_data(10, 3)
-    count_glucose_level_data(10, 5)
-    count_glucose_level_data(10, 10)
-    count_glucose_level_data(20, 3)
-    count_glucose_level_data(20, 5)
-    count_glucose_level_data(20, 10)
-    count_glucose_level_data(30, 3)
-    count_glucose_level_data(30, 5)
-    count_glucose_level_data(30, 10)
+    data, patient_data = load(TEST2_567_PATH)
+    dropped_data = drop_days_with_missing_eat_data(data,3)
+    print('ok')
+    #count_glucose_level_data(1,3)
+    #count_glucose_level_data(1, 5)
+    #count_glucose_level_data(1, 10)
+    #count_glucose_level_data(5, 3)
+    #count_glucose_level_data(5, 5)
+    #count_glucose_level_data(5, 10)
+    #count_glucose_level_data(10, 3)
+    #count_glucose_level_data(10, 5)
+    #count_glucose_level_data(10, 10)
+    #count_glucose_level_data(20, 3)
+    #count_glucose_level_data(20, 5)
+    #count_glucose_level_data(20, 10)
+    #count_glucose_level_data(30, 3)
+    #count_glucose_level_data(30, 5)
+    #count_glucose_level_data(30, 10)
 
 
