@@ -70,7 +70,7 @@ def train_valid_split(glucose_data: pd.DataFrame):
     return train_x,  test_x
 
 
-def model2(data, windowsize):
+def modelbase(data, windowsize):
     feature1=data['glucose_level']
     feature1['carbs']=""
     feature1['carbs']=feature1['carbs'].apply(lambda x:0)
@@ -141,4 +141,4 @@ def modelMeal(train_x, validX, validY, train_y, look_back):
 if __name__ == "__main__":
     data, patient_data = load(TRAIN2_540_PATH)
     #clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
-    model2(data,30)
+    modelbase(data,30)
