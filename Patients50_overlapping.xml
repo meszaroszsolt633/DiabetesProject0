@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<root>
+	Glucose level threshold number: 50
+	<child>559-ws-trainingCleaned.xml : Glucose level data amount: 8739</child>
+	<child>563-ws-trainingCleaned.xml : Glucose level data amount: 11109</child>
+	<child>570-ws-trainingCleaned.xml : Glucose level data amount: 9973</child>
+	<child>575-ws-trainingCleaned.xml : Glucose level data amount: 8395</child>
+	<child>588-ws-trainingCleaned.xml : Glucose level data amount: 12141</child>
+	<child>591-ws-trainingCleaned.xml : Glucose level data amount: 9683</child>
+	<child>540-ws-trainingCleaned.xml : Glucose level data amount: 10510</child>
+	<child>544-ws-trainingCleaned.xml : Glucose level data amount: 9639</child>
+	<child>552-ws-trainingCleaned.xml : Glucose level data amount: 7089</child>
+	<child>567-ws-trainingCleaned.xml : Glucose level data amount: 8179</child>
+	<child>596-ws-trainingCleaned.xml : Glucose level data amount: 9913</child>
+	<child>559-ws-testingCleaned.xml : Glucose level data amount: 1925</child>
+	<child>563-ws-testingCleaned.xml : Glucose level data amount: 2373</child>
+	<child>570-ws-testingCleaned.xml : Glucose level data amount: 2254</child>
+	<child>575-ws-testingCleaned.xml : Glucose level data amount: 2085</child>
+	<child>588-ws-testingCleaned.xml : Glucose level data amount: 2643</child>
+	<child>591-ws-testingCleaned.xml : Glucose level data amount: 2535</child>
+	<child>540-ws-testingCleaned.xml : Glucose level data amount: 2454</child>
+	<child>544-ws-testingCleaned.xml : Glucose level data amount: 2421</child>
+	<child>552-ws-testingCleaned.xml : Glucose level data amount: 1873</child>
+	<child>567-ws-testingCleaned.xml : Glucose level data amount: 1800</child>
+	<child>584-ws-testingCleaned.xml : Glucose level data amount: 1897</child>
+	<child>596-ws-testingCleaned.xml : Glucose level data amount: 2399</child>
+</root>

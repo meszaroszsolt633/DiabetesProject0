@@ -213,13 +213,13 @@ def create_increasing_rows_fixed(amount, datetime, avg):
     return rows
 
 
-def create_decreasing_rows_fixed(amount, datetime, avg):
+def create_decreasing_rows_fixed(amount, datetime, value):
     rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
     prev_datetime = datetime
 
     for i in range(0, amount):
         dt = pd.to_datetime(prev_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
-        rows.loc[i] = pd.Series({'ts': dt, 'value': math.floor(avg)})
+        rows.loc[i] = pd.Series({'ts': dt, 'value': math.floor(value)})
         prev_datetime += pd.Timedelta(5, 'm')
     return rows
 
@@ -498,16 +498,74 @@ def count_continuous_glucose_windows(data, thresholdglucose: int, time_step=pd.T
 
     return count
 
+def fill_glucose_level_data_with_zeros(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
+    prev_ts = None
+    #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
+    #amivel a beszúrást oldjuk meg. (ha beszúrunk 5 elemet a 65 index után, a 66. elem a régi 66. elem lesz
+    # nem pedig az új beszúrt)
+    corrector = 0
+    for idx, ts in enumerate(cleaned_data['glucose_level']['ts']):
+        if prev_ts is not None:
+            dt = ts - prev_ts
+            if pd.Timedelta(1,'d') > dt >= time_step + time_step:
+                # megnézzük mennyi hiányzik
+                missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds()) - 1
+
+                # létrehozunk 1 dataframe-t amiben megfelelő mennyiségű sor van
+                df_to_insert = create_increasing_rows_fixed(missing_amount, prev_ts, 0)
+
+                # beszúrjuk az új dataframeünket az eredetibe
+                cleaned_data['glucose_level'] = insert_row(idx+corrector, cleaned_data['glucose_level'], df_to_insert)
+                corrector += missing_amount
+        prev_ts = ts
+    return cleaned_data
+
+def count_continuous_glucose_windows_overlapping(data, thresholdglucose: int, time_step=pd.Timedelta(5, 'm')):
+    data_filled = {}
+    for key in data.keys():
+        data_filled[key] = data[key].__deepcopy__()
+    data_filled = fill_glucose_level_data_with_zeros(data_filled, time_step)
+    counter = 0
+    idx = 0
+    while idx < len(data_filled['glucose_level']['value'])-thresholdglucose:
+        tmp = data_filled['glucose_level']['value'][idx:idx+thresholdglucose]
+        if tmp.isin([0]).any():
+            idx = tmp.loc[tmp == 0].index[-1]+1
+        else:
+            counter += 1
+            idx += 1
+    return counter
+
+def count_glucose_level_data_overlapping(threshholdnumber: int):
+    #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
+    root="<root>Glucose level threshold number: {}".format(threshholdnumber)
+    for filepaths in ALL_FILE_PATHS:
+        data, patient_data = load(filepaths)
+        stringpath = filepath_to_string(filepaths)
+        cleaned_data = {}
+        for key in data.keys():
+            cleaned_data[key] = data[key].__deepcopy__()
+        #print("{} Glucose level data amount: {} / {} ".format(stringpath,len(cleaned_data['glucose_level']),len(data['glucose_level'])))
+        root+="<child>{} : Glucose level data amount: {}</child>".format(stringpath,count_continuous_glucose_windows_overlapping(data,threshholdnumber))
+    root+="</root>"
+
+    #tree.write("Patients.xml", encoding="utf-8", xml_declaration=True, method="xml",pretty_print=True)
+    dom = minidom.parseString(root)
+    pretty_xml_str = dom.toprettyxml()
+    filename="Patients{}_overlapping.xml".format(threshholdnumber)
+    with open(filename, "w") as f:
+        f.write(pretty_xml_str)
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    #filled_data = fill_glucose_level_data_continuous(data, pd.Timedelta(5,"m"))
-    #print(filled_data)
     #data, patient_data = load(TEST2_567_PATH)
     #dropped_data = drop_days_with_missing_eat_data(data,3)
     #print('ok')
-    count_glucose_windows(60)
-    count_glucose_windows(80)
-    count_glucose_windows(50)
-    count_glucose_windows(70)
+    count_glucose_level_data_overlapping(50)
+    count_glucose_level_data_overlapping(60)
+    count_glucose_level_data_overlapping(70)
+    count_glucose_level_data_overlapping(80)
 
 
