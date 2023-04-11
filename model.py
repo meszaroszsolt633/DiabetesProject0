@@ -5,7 +5,7 @@ from functions import *
 from xml_read import *
 from xml_write import *
 from tensorflow import keras
-from modelMealClassification import *
+from modelMealClassificationRNN import *
 from keras.models import Model
 from keras.layers import Input, LSTM
 from keras.layers import Dense
