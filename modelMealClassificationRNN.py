@@ -59,14 +59,14 @@ def show_plot(plot_data, delta, title):
     return
 
 
-def train_valid_split(glucose_data: pd.DataFrame):
+def train_valid_split(glucose_data: pd.DataFrame,train_ratio):
     cleaned_data = {}
     for key in glucose_data.keys():
         cleaned_data[key] = glucose_data[key].__deepcopy__()
     cleaned_data = pd.DataFrame(cleaned_data)
     # scaler = MinMaxScaler(feature_range=(0, 1))
     # cleaned_data = scaler.fit_transform(cleaned_data)
-    idx = int(0.8 * int(cleaned_data.shape[0]))
+    idx = int(train_ratio * int(cleaned_data.shape[0]))
     train_x = cleaned_data[:idx]
     test_x = cleaned_data[idx:]
     return train_x, test_x
@@ -120,13 +120,13 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     feature_validation_combined = pd.concat([feature_validation_y, feature_validation_x], axis=1)
 
     # Use if data separation is needed, use only one dataframe
-    #train, valid = train_test_valid_split(features_train_combined)
+    #train, valid = train_test_valid_split(features_train_combined,0.8)
     #trainX, trainY = create_dataset(train, look_back)
     #validX, validY = create_dataset(valid, look_back)
 
     scaler = MinMaxScaler(feature_range=(0, 1))
-    feature_validation_combined = scaler.fit_transform(feature_validation_combined)
-    features_train_combined = scaler.fit_transform(features_train_combined)
+    feature_validation_combined = scaler.fit_transform(feature_validation_combined.values)
+    features_train_combined = scaler.fit_transform(features_train_combined.values)
 
     trainX, trainY = create_dataset(features_train_combined, lookback)
     validX, validY = create_dataset(feature_validation_combined, lookback)
