@@ -59,8 +59,8 @@ def model_base_CNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     #validX, validY = create_dataset(valid, look_back)
 
     scaler = MinMaxScaler(feature_range=(0, 1))
-    feature_validation_combined = scaler.fit_transform(feature_validation_combined)
-    features_train_combined = scaler.fit_transform(features_train_combined)
+    feature_validation_combined = scaler.fit_transform(feature_validation_combined.values)
+    features_train_combined = scaler.fit_transform(features_train_combined.values)
 
     trainX, trainY = create_dataset(features_train_combined, lookback)
     validX, validY = create_dataset(feature_validation_combined, lookback)
