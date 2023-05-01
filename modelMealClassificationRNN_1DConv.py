@@ -11,7 +11,7 @@ from tensorflow import keras
 import tensorflow as tf
 from scipy import ndimage
 from keras.models import Model
-from keras.layers import Input, LSTM, Conv1D, MaxPooling1D
+from keras.layers import Input, LSTM, Conv1D, MaxPooling1D, TimeDistributed, Bidirectional
 from keras.layers import Dense
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
@@ -59,6 +59,15 @@ def show_plot(plot_data, delta, title):
     return
 
 
+
+def create_dataset_RNN_1DConv(X,y, time_steps):
+    Xs, ys = [], []
+    for i in range(len(X) - time_steps):
+        Xs.append(X[i: (i + time_steps)])
+        ys.append(y[i + time_steps])
+    return np.array(Xs), np.array(ys)
+
+
 def train_valid_split(glucose_data: pd.DataFrame,train_ratio):
     cleaned_data = {}
     for key in glucose_data.keys():
@@ -72,7 +81,7 @@ def train_valid_split(glucose_data: pd.DataFrame,train_ratio):
     return train_x, test_x
 
 
-def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50):
+def model_base_RNN_1DConv(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50):
 
 
     #TRAIN
@@ -129,20 +138,31 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     feature_validation_combined = scaler.transform(feature_validation_combined.values)
 
 
-    trainX, trainY = create_dataset(features_train_combined, lookback)
-    validX, validY = create_dataset(feature_validation_combined, lookback)
+    trainX, trainY = create_dataset_RNN_1DConv(features_train_combined[:,1],features_train_combined[:,0], lookback)
+    validX, validY = create_dataset_RNN_1DConv(feature_validation_combined[:,1],feature_validation_combined[:,0], lookback)
+
+    #trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+   #validX = np.reshape(validX, (validX.shape[0], 1, validX.shape[1]))
+    print("trainX Shape:",trainX.shape)
+    print("trainY Shape:",trainY.shape)
+    print("validX Shape:",validX.shape)
+    print("validY Shape:",validY.shape)
+    trainX = np.expand_dims(trainX, axis=-1)
+    validX = np.expand_dims(validX, axis=-1)
+    print(trainX.shape[1], trainX.shape[2])
+
+    model_meal_RNN_1DCONV(trainX, validX, validY, trainY, epochnumber,0.01)
 
 
-    trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-    validX = np.reshape(validX, (validX.shape[0], 1, validX.shape[1]))
-
-    model_meal_RNN(trainX, validX, validY, trainY, epochnumber)
 
 
-def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
+
+
+
+def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_rate):
     model = keras.Sequential()
 
-    opt = keras.optimizers.Adam(learning_rate=0.01)
+    opt = keras.optimizers.Adam(learning_rate=lrnng_rate)
     path_checkpoint = "modelMeal_checkpoint.h5"
     es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=5)
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
@@ -153,13 +173,23 @@ def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
         save_best_only=True,
     )
 
-    model.add(LSTM(128, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
+    # Conv1D layers
+    model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], 1)))
+    model.add(MaxPooling1D(pool_size=2))
     model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=True))
+
+    model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
     model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=False))
-    model.add(Dropout(0.3))
-    model.add(Dense(1, activation="sigmoid"))
+
+    # LSTM layers
+    model.add(Bidirectional(LSTM(128, return_sequences=True)))
+    model.add(Dropout(0.4))
+    model.add(Bidirectional(LSTM(128, return_sequences=False)))
+    model.add(Dropout(0.4))
+
+    # Dense output layer
+    model.add(Dense(1, activation='sigmoid'))
 
     model.summary()
     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
@@ -182,13 +212,9 @@ def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
     plt.legend()
     plt.show()
 
-
-
-
-
 if __name__ == "__main__":
     #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     dataTrain, patient_data = load(TRAIN2_540_PATH)
     dataValidation,patient_data = load(TEST2_540_PATH)
     # clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
-    model_base_RNN(dataTrain, dataValidation)
+    model_base_RNN_1DConv(dataTrain, dataValidation)
