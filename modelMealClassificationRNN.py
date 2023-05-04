@@ -15,6 +15,10 @@ from keras.layers import Input, LSTM, Conv1D, MaxPooling1D
 from keras.layers import Dense
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+import tensorflow_addons as tfa
+
+
+
 
 
 def normalize(data, train_split):
@@ -162,7 +166,12 @@ def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
     model.add(Dense(1, activation="sigmoid"))
 
     model.summary()
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",
+        tf.keras.metrics.Precision(name="precision"),
+        tf.keras.metrics.Recall(name="recall"),
+        tf.keras.metrics.AUC(name="auc"),
+        tfa.metrics.F1Score(num_classes=1,average='macro',threshold=0.5)
+        ])
     history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
 
@@ -189,6 +198,6 @@ def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
 if __name__ == "__main__":
     #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     dataTrain, patient_data = load(TRAIN2_540_PATH)
-    dataValidation,patient_data = load(TEST2_540_PATH)
+    dataValidation,patient_data = load(TEST2_544_PATH)
     # clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
     model_base_RNN(dataTrain, dataValidation)

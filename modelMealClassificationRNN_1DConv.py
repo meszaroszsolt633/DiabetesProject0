@@ -174,25 +174,32 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
     )
 
     # Conv1D layers
-    model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], 1)))
+    model.add(Conv1D(filters=128, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], 1)))
     model.add(MaxPooling1D(pool_size=2))
     model.add(Dropout(0.3))
 
-    model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
+    model.add(Conv1D(filters=256, kernel_size=3, activation='relu'))
     model.add(MaxPooling1D(pool_size=2))
     model.add(Dropout(0.3))
 
     # LSTM layers
-    model.add(Bidirectional(LSTM(128, return_sequences=True)))
+    model.add(Bidirectional(LSTM(256, return_sequences=True)))
     model.add(Dropout(0.4))
-    model.add(Bidirectional(LSTM(128, return_sequences=False)))
+    model.add(Bidirectional(LSTM(256, return_sequences=False)))
     model.add(Dropout(0.4))
 
     # Dense output layer
     model.add(Dense(1, activation='sigmoid'))
 
     model.summary()
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",
+                                                                         tf.keras.metrics.Precision(name="precision"),
+                                                                         tf.keras.metrics.Recall(name="recall"),
+                                                                         tf.keras.metrics.AUC(name="auc"),
+                                                                         tfa.metrics.F1Score(num_classes=1,
+                                                                                             average='macro',
+                                                                                             threshold=0.5)
+                                                                         ])
     history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
 
@@ -213,7 +220,7 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
     plt.show()
 
 if __name__ == "__main__":
-    #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     dataTrain, patient_data = load(TRAIN2_540_PATH)
     dataValidation,patient_data = load(TEST2_540_PATH)
     # clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)

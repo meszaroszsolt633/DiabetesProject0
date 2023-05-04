@@ -93,7 +93,14 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
     model.add(Dense(128, activation='relu'))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",
+                                                                         tf.keras.metrics.Precision(name="precision"),
+                                                                         tf.keras.metrics.Recall(name="recall"),
+                                                                         tf.keras.metrics.AUC(name="auc"),
+                                                                         tfa.metrics.F1Score(num_classes=1,
+                                                                                             average='macro',
+                                                                                             threshold=0.5)
+                                                                         ])
     history=model.fit(train_x, train_y, epochs=epochnumber, callbacks=[ modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
     prediction = model.predict(validX)
