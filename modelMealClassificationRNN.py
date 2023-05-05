@@ -18,8 +18,14 @@ from sklearn.preprocessing import MinMaxScaler
 import tensorflow_addons as tfa
 
 
+def count_ones_and_zeros(array):
+    unique_elements, counts = np.unique(array, return_counts=True)
+    counts_dict = dict(zip(unique_elements, counts))
 
+    count_ones = counts_dict.get(1, 0)
+    count_zeros = counts_dict.get(0, 0)
 
+    return count_zeros, count_ones
 
 def normalize(data, train_split):
     data_mean = data[:train_split].mean(axis=0)
@@ -93,13 +99,18 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     features_train = features_train.sort_values(by='ts', ignore_index=True)
 
     features_train_y = features_train['carbs']
+    count_zeros, count_ones = count_ones_and_zeros(features_train_y)
+    print("train:\n")
+    print(f"Number of 0s: {count_zeros}")
+    print(f"Number of 1s: {count_ones}")
     features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
     features_train_y = pd.DataFrame(features_train_y)
 
     features_train_x = features_train['value']
     features_train_x = pd.DataFrame(features_train_x)
     features_train_x = features_train_x.fillna(method='ffill')
-    features_train_combined = pd.concat([features_train_y, features_train_x], axis=1)
+    features_train_x['value'] = features_train_x['value'].astype('float64')
+
 
     #VALIDATION
 
@@ -111,34 +122,62 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     feature_validation2 = feature_validation2.drop(['type'], axis=1)
     feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1)
 
-    feature_validation = pd.concat([feature_validation1, feature_validation2])
-    feature_validation = feature_validation.sort_values(by='ts', ignore_index=True)
+    features_validation = pd.concat([feature_validation1, feature_validation2])
+    features_validation = features_validation.sort_values(by='ts', ignore_index=True)
 
-    feature_validation_y = feature_validation['carbs']
-    feature_validation_y = ndimage.maximum_filter(feature_validation_y, size=maxfiltersize)
-    feature_validation_y = pd.DataFrame(feature_validation_y)
+    features_validation_y = features_validation['carbs']
+    count_zeros, count_ones = count_ones_and_zeros(features_validation_y)
+    print("validation:\n")
+    print(f"Number of 0s: {count_zeros}")
+    print(f"Number of 1s: {count_ones}")
+    features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
+    features_validation_y = pd.DataFrame(features_validation_y)
 
-    feature_validation_x = feature_validation['value']
-    feature_validation_x = pd.DataFrame(feature_validation_x)
-    feature_validation_x = feature_validation_x.fillna(method='ffill')
-    feature_validation_combined = pd.concat([feature_validation_y, feature_validation_x], axis=1)
+    features_validation_x = features_validation['value']
+    features_validation_x = pd.DataFrame(features_validation_x)
+    features_validation_x = features_validation_x.fillna(method='ffill')
+    features_validation_x['value'] = features_validation_x['value'].astype('float64')
+
+    count_zeros, count_ones = count_ones_and_zeros(features_train_y)
+    print("train:\n")
+    print(f"Number of 0s: {count_zeros}")
+    print(f"Number of 1s: {count_ones}")
+
+    count_zeros, count_ones = count_ones_and_zeros(features_validation_y)
+    print("validation:\n")
+    print(f"Number of 0s: {count_zeros}")
+    print(f"Number of 1s: {count_ones}")
 
     # Use if data separation is needed, use only one dataframe
     #train, valid = train_test_valid_split(features_train_combined,0.8)
     #trainX, trainY = create_dataset(train, look_back)
     #validX, validY = create_dataset(valid, look_back)
 
+
+
+
     scaler = MinMaxScaler(feature_range=(0, 1))
-    features_train_combined = scaler.fit_transform(features_train_combined.values)
-    feature_validation_combined = scaler.transform(feature_validation_combined.values)
+    features_train_x = pd.DataFrame(scaler.fit_transform(features_train_x.values), columns=features_train_x.columns,
+                                    index=features_train_x.index)
+    features_validation_x = pd.DataFrame(scaler.transform(features_validation_x.values),
+                                         columns=features_validation_x.columns, index=features_validation_x.index)
 
 
-    trainX, trainY = create_dataset(features_train_combined, lookback)
-    validX, validY = create_dataset(feature_validation_combined, lookback)
+    trainY_np = features_train_y.values
+    validY_np = features_validation_y.values
+
+    trainX,trainY = create_dataset(features_train_x,trainY_np, lookback)
+    validX,validY = create_dataset(features_validation_x,validY_np, lookback)
 
 
-    trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-    validX = np.reshape(validX, (validX.shape[0], 1, validX.shape[1]))
+    trainX = np.reshape(trainX.shape[0], trainX.shape[1], 1)
+    validX = np.reshape(validX.shape[0], validX.shape[1], 1)
+
+    print("trainX:",trainX.shape)
+    print("trainY:",trainY.shape)
+    print("validX:",validX.shape)
+    print("validY:", validY.shape)
+
 
     model_meal_RNN(trainX, validX, validY, trainY, epochnumber)
 
@@ -198,6 +237,6 @@ def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
 if __name__ == "__main__":
     #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     dataTrain, patient_data = load(TRAIN2_540_PATH)
-    dataValidation,patient_data = load(TEST2_544_PATH)
+    dataValidation,patient_data = load(TEST2_540_PATH)
     # clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
     model_base_RNN(dataTrain, dataValidation)

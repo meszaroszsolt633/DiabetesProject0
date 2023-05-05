@@ -78,13 +78,18 @@ def train_test_valid_split(glucose_data: pd.DataFrame):
     test_x = cleaned_data[idx:]
     return train_x,  test_x
 
-def create_dataset(dataset, look_back=1):
-	dataX, dataY = [], []
-	for i in range(len(dataset)-look_back-1):
-		a = dataset[i:(i+look_back), 0]
-		dataX.append(a)
-		dataY.append(dataset[i + look_back, 0])
-	return np.array(dataX), np.array(dataY)
+def create_dataset(data, labels, window_size):
+    X, Y = [], []
+    for i in range(len(data) - window_size):
+        window = data[i:(i + window_size)]
+        X.append(window)
+        Y.append(labels[i + window_size])
+    return np.array(X), np.array(Y)
+
+
+
+
+
 
 # ctrl+alt+shift+L REFORMATS CODE
 
