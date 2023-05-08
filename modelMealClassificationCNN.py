@@ -59,8 +59,9 @@ def model_base_CNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     #validX, validY = create_dataset(valid, look_back)
 
     scaler = MinMaxScaler(feature_range=(0, 1))
-    feature_validation_combined = scaler.fit_transform(feature_validation_combined.values)
+
     features_train_combined = scaler.fit_transform(features_train_combined.values)
+    feature_validation_combined = scaler.transform(feature_validation_combined.values)
 
     trainX, trainY = create_dataset(features_train_combined, lookback)
     validX, validY = create_dataset(feature_validation_combined, lookback)
@@ -92,7 +93,14 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
     model.add(Dense(128, activation='relu'))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",
+                                                                         tf.keras.metrics.Precision(name="precision"),
+                                                                         tf.keras.metrics.Recall(name="recall"),
+                                                                         tf.keras.metrics.AUC(name="auc"),
+                                                                         tfa.metrics.F1Score(num_classes=1,
+                                                                                             average='macro',
+                                                                                             threshold=0.5)
+                                                                         ])
     history=model.fit(train_x, train_y, epochs=epochnumber, callbacks=[ modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
     prediction = model.predict(validX)
@@ -112,6 +120,7 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
     plt.show()
 
 if __name__ == "__main__":
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     dataTrain, patient_data = load(TRAIN2_540_PATH)
     dataValidation, patient_data = load(TEST2_540_PATH)
     # clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
