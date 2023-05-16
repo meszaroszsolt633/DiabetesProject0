@@ -1,13 +1,16 @@
 import math
 import ntpath
+
+from scipy import ndimage
+
 from xml_read import *
 from xml_write import *
 from defines import *
 import pandas as pd
 import numpy as np
 import xml.dom.minidom as minidom
-from model import *
-
+from model import create_dataset
+from modelMealClassificationRNN import *
 
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
     counts = {'good': 0,
@@ -331,7 +334,7 @@ def fill_meal_zeros(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     for idx, ts in enumerate(cleaned_data['meal']['ts']):
         if prev_ts is not None:
             dt = ts - prev_ts
-            if pd.Timedelta(1,'d') > dt >= time_step + time_step:
+            if dt >= time_step + time_step:
                 # megnézzük mennyi hiányzik
                 missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds())
 
@@ -340,7 +343,7 @@ def fill_meal_zeros(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
                 # beszúrjuk az új dataframeünket az eredetibe
                 cleaned_data['meal'] = insert_row(idx+corrector, cleaned_data['meal'], df_to_insert)
                 corrector += missing_amount
-        prev_ts = ts
+        prev_ts = cleaned_data['glucose_level']['ts'][idx+corrector+1]
 
     cleaned_data = fill_end_meal_with_zeros(cleaned_data, time_step)
     return cleaned_data
@@ -405,6 +408,7 @@ def fill_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step:
     return cleaned_data
 
 
+# region Fill fixed
 def fill_start_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     avgs = avg_calculator(data)
     cleaned_data = {}
@@ -463,6 +467,7 @@ def fill_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.T
                 corrector += missing_amount
         prev_ts = ts
     return cleaned_data
+# endregion
 
 def avg_calculator(data: dict[str, pd.DataFrame]):
     cleaned_data = {}
@@ -648,13 +653,61 @@ def count_glucose_level_data_overlapping(threshholdnumber: int):
     with open(filename, "w") as f:
         f.write(pretty_xml_str)
 
+def get_data_without_zeros(data):
+    #ez csak akkor használható, ha már a meal is fel van töltve 0-ákkal a dataframeben
+    data_sorted = {}
+    for key in data.keys():
+        data_sorted[key] = data[key].__deepcopy__()
+
+    selected_pairs = ['meal', 'glucose_level']
+
+    # Initialize an empty list to store the extracted DataFrames
+    extracted_dataframes = []
+
+    # Iterate over the dictionary items
+    for key, df in data_sorted.items():
+        if key in selected_pairs:
+            # Extract the necessary columns from the DataFrame
+            if key == 'meal':
+                extracted_df = df[['carb']]
+            elif key == 'glucose_level':
+                extracted_df = df[['value']]
+            extracted_dataframes.append(extracted_df)
+
+    # Concatenate the extracted DataFrames into a single DataFrame
+    result_df = pd.concat(extracted_dataframes, ignore_index=True)
+
+    non_zero_rows = result_df[result_df['value'] != 0]
+    non_zero_rows['group'] = (non_zero_rows['value'] == 0).cumsum()
+    non_zero_rows_with_target = non_zero_rows.groupby('group').agg(
+        {'value': list, 'carb': lambda x: list(x)}).reset_index(drop=True)
+
+    return non_zero_rows_with_target
+
+def load_everything():
+    train_dict = {}
+    for filepaths in ALL_TRAIN_FILE_PATHS:
+        temp_data, temp_patient_data = load(filepaths)
+        for key, value in temp_data.items():
+            if key in train_dict:
+                train_dict[key] = pd.concat([train_dict[key], value])
+            else:
+                train_dict[key] = value
+    test_dict = {}
+    for filepaths in ALL_TEST_FILE_PATHS:
+        temp_data, temp_patient_data = load(filepaths)
+        for key, value in temp_data.items():
+            if key in test_dict:
+                test_dict[key] = pd.concat([test_dict[key], value])
+            else:
+                test_dict[key] = value
+    return train_dict, test_dict
+
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
-    data, patient_data = load(TEST2_540_PATH)
+    #data, patient_data = load(TEST2_540_PATH)
     #dropped_data = drop_days_with_missing_eat_data(data,3)
     #print('ok')
-    data_glucose = fill_glucose_level_data_with_zeros(data, pd.Timedelta(5,'m'))
-    data_filled = fill_meal_zeros(data_glucose,pd.Timedelta(5,'m'))
-    data_filled
-
-
+    train,test = load_everything()
+    #data_glucose = fill_glucose_level_data_with_zeros(data, pd.Timedelta(5,'m'))
+    #data_filled = fill_meal_zeros(data_glucose,pd.Timedelta(5,'m'))
 

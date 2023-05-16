@@ -15,7 +15,7 @@ from keras.layers import Input, LSTM, Conv1D, MaxPooling1D
 from keras.layers import Dense
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-import tensorflow_addons as tfa
+#import tensorflow_addons as tfa
 
 
 def count_ones_and_zeros(array):
@@ -209,7 +209,7 @@ def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
         tf.keras.metrics.Precision(name="precision"),
         tf.keras.metrics.Recall(name="recall"),
         tf.keras.metrics.AUC(name="auc"),
-        tfa.metrics.F1Score(num_classes=1,average='macro',threshold=0.5)
+        #tfa.metrics.F1Score(num_classes=1,average='macro',threshold=0.5)
         ])
     history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
