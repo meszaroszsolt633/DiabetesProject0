@@ -9,7 +9,6 @@ from defines import *
 import pandas as pd
 import numpy as np
 import xml.dom.minidom as minidom
-from model import create_dataset
 from modelMealClassificationRNN import *
 
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
@@ -710,4 +709,4 @@ if __name__ == "__main__":  # runs only if program was ran from this file, does 
     train,test = load_everything()
     #data_glucose = fill_glucose_level_data_with_zeros(data, pd.Timedelta(5,'m'))
     #data_filled = fill_meal_zeros(data_glucose,pd.Timedelta(5,'m'))
-
+    print('.')

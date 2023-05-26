@@ -3,6 +3,7 @@ from defines import *
 import numpy as np
 from statistics import stdev
 from scipy import signal
+from model import data_preparation, create_dataset
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
@@ -49,13 +50,7 @@ def visualize_loss(history, title):
     plt.show()
 
 
-def create_dataset(dataset, look_back=1):
-    dataX, dataY = [], []
-    for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back), 0]
-        dataX.append(a)
-        dataY.append(dataset[(i + look_back), 0])
-    return np.array(dataX), np.array(dataY)
+
 
 def show_plot(plot_data, delta, title):
     labels = ["History", "True Future", "Model Prediction"]
@@ -189,7 +184,7 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
                                                                                              average='macro',
                                                                                              threshold=0.5)
                                                                          ])
-    history=model.fit(train_x, train_y, epochs=epochnumber, callbacks=[ modelckpt_callback], verbose=1, shuffle=False,
+    history=model.fit(train_x, train_y, epochs=epochnumber, callbacks=[ es_callback,modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
     prediction = model.predict(validX)
     # Prediction and actual data plot
@@ -211,8 +206,9 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
 if __name__ == "__main__":
     dataTrain, patient_data = load(TRAIN2_544_PATH)
     dataValidation, patient_data = load(TEST2_544_PATH)
-    #clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
-    model2(dataTrain,dataValidation,50,10,200)
+    dataTrain = data_preparation(dataTrain, pd.Timedelta(5, "m"), 30, 3)
+    dataValidation = data_preparation(dataValidation, pd.Timedelta(5, "m"), 30, 3)
+    model2(dataTrain,dataValidation,60,10,200)
 
 
 
