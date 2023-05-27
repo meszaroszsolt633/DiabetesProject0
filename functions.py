@@ -726,13 +726,16 @@ def fill_meal_with_zeros(data):
         #print(matching_index)
         #if matching_index == 2451:
         #    print(')')
+        #if int((idx+corrector)/1000) == 7:
+        #    print('!')
         amount = matching_index- prev_match_idx
-        prev_match_idx = matching_index
+        prev_match_idx = matching_index+1
         df_to_insert = create_increasing_rows_meal(amount, 0)
 
         # beszúrjuk az új dataframeünket az eredetibe
         data['meal'] = insert_row(idx + corrector, data['meal'], df_to_insert)
-        corrector += amount
+        if amount > 0:
+            corrector += amount
     data = fill_end_meal_with_zeros(data,pd.Timedelta(minutes=5))
     return data
 #endregion
@@ -742,21 +745,29 @@ def fill_meal_with_zeros(data):
 
 def load_everything():
     train_dict = {}
+    file = open('MealDataCompare.txt','w')
+    file.write('Train ')
     for filepaths in ALL_TRAIN_FILE_PATHS:
-        print(filepaths[-18:-1])
-
+        print(filepaths[-19:-4])
+        to_write= filepaths[-19:-16] + '\n'
+        file.write(to_write)
         #betöltjük egyesével az xml fájlokat
         temp_data, temp_patient_data = load(filepaths)
+        print('Glükóz adatok: ',len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
 
-        print('Glükóz adatok: ',len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['glucose_level']))
         #mindegyiknél feltöltjük 0-val a hiányzó részeket, hogy "létezzenek"
         temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['glucose_level']))
+        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+
         #kidobjuk azokat a meal adatokat, amelyeknél nem létezik egyező napú glükóz adat
         temp_data = drop_meal_days(temp_data)
+
         #feltöltjük a mealt is 0-ákkal, hogy létezzenek, a glükóz adatoknak megfelelően
         temp_data = fill_meal_with_zeros(temp_data)
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['glucose_level']))
+        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+
+        to_write = 'Glucose adatok: ' + str(len(temp_data['glucose_level'])) + '\nMeal adatok: '+ str(len(temp_data['meal'])) + '\n\n'
+        file.write(to_write)
         #majd itt egybefűzzük az egészet egy nagy dataframe-be
         for key, value in temp_data.items():
             if key in train_dict:
@@ -767,16 +778,24 @@ def load_everything():
                 train_dict[key] = train_dict[key].reset_index(drop=True)
 
     test_dict = {}
+    file.write('Test ')
     for filepaths in ALL_TEST_FILE_PATHS:
         #ugyanaz történik csak a test fájlokkal
-        print(filepaths[-18:-1])
+        print(filepaths[-18:-4])
+        to_write = filepaths[-18:-15] + '\n'
+        file.write(to_write)
         temp_data, temp_patient_data = load(filepaths)
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['glucose_level']))
+        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+
         temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['glucose_level']))
+        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+
         temp_data = drop_meal_days(temp_data)
+
         temp_data = fill_meal_with_zeros(temp_data)
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['glucose_level']))
+        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+        to_write = 'Glucose adatok: ' + str(len(temp_data['glucose_level'])) + '\nMeal adatok: '+ str(len(temp_data['meal'])) + '\n\n'
+        file.write(to_write)
         for key, value in temp_data.items():
             if key in test_dict:
                 test_dict[key] = pd.concat([test_dict[key], value])
@@ -784,6 +803,8 @@ def load_everything():
             else:
                 test_dict[key] = value
                 test_dict[key] = test_dict[key].reset_index(drop=True)
+
+    file.close()
     return train_dict, test_dict
 
 
@@ -791,10 +812,10 @@ def load_everything():
 def drop_meal_days(data):
     # Step 1: Extract the unique dates from the "glucose level" dataset
     glucose_dates = pd.to_datetime(data['glucose_level']['ts']).dt.date.unique()
-    print('Meal hossza: ', len(data['meal']))
+    #print('Meal hossza: ', len(data['meal']))
     # Step 2: Filter the "meal" dataset to keep only the rows where the date exists in the "glucose level" dataset
     data['meal'] = data['meal'][pd.to_datetime(data['meal']['ts']).dt.date.isin(glucose_dates)]
-    print('Törlés után: ', len(data['meal']))
+    #print('Törlés után: ', len(data['meal']))
 
     return data
 
