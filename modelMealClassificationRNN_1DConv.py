@@ -159,65 +159,7 @@ def model_base_RNN_1DConv(dataTrain, dataValidation, lookback=50, maxfiltersize=
 
 
 
-def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_rate):
-    model = keras.Sequential()
 
-    opt = keras.optimizers.Adam(learning_rate=lrnng_rate)
-    path_checkpoint = "modelMeal_checkpoint.h5"
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=5)
-    modelckpt_callback = keras.callbacks.ModelCheckpoint(
-        monitor="val_loss",
-        filepath=path_checkpoint,
-        verbose=1,
-        save_weights_only=True,
-        save_best_only=True,
-    )
-
-    # Conv1D layers
-    model.add(Conv1D(filters=128, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], 1)))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Dropout(0.3))
-
-    model.add(Conv1D(filters=256, kernel_size=3, activation='relu'))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Dropout(0.3))
-
-    # LSTM layers
-    model.add(Bidirectional(LSTM(256, return_sequences=True)))
-    model.add(Dropout(0.4))
-    model.add(Bidirectional(LSTM(256, return_sequences=False)))
-    model.add(Dropout(0.4))
-
-    # Dense output layer
-    model.add(Dense(1, activation='sigmoid'))
-
-    model.summary()
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",
-                                                                         tf.keras.metrics.Precision(name="precision"),
-                                                                         tf.keras.metrics.Recall(name="recall"),
-                                                                         tf.keras.metrics.AUC(name="auc"),
-                                                                         tfa.metrics.F1Score(num_classes=1,
-                                                                                             average='macro',
-                                                                                             threshold=0.5)
-                                                                         ])
-    history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[modelckpt_callback], verbose=1, shuffle=False,
-              validation_data=(validX, validY))
-
-    prediction = model.predict(validX)
-    #Prediction and actual data plot
-   #plt.figure(figsize=(20, 6))
-   #plt.plot(prediction[0:1440 * 3], label='prediction')
-   #plt.plot(validY[0:1440 * 3], label='test_data')
-   #plt.legend()
-   #plt.show()
-    #Loss and validation loss plot
-    plt.plot(history.history['loss'],  label='Training loss')
-    plt.plot(history.history['val_loss'],  label='Validation loss')
-    plt.title('Training VS Validation loss')
-    plt.xlabel('No. of Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.show()
 
 if __name__ == "__main__":
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))

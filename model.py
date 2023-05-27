@@ -14,14 +14,7 @@ from keras.layers import Dropout
 from sklearn.preprocessing import MinMaxScaler
 
 
-def data_preparation(data: dict[str, pd.DataFrame], time_step: pd.Timedelta, missing_count_threshold,
-                     missing_eat_threshold) -> dict[str, pd.DataFrame]:
-    cleaned_data = drop_days_with_missing_glucose_data(data, missing_count_threshold)
-    cleaned_data = drop_days_with_missing_eat_data(cleaned_data, missing_eat_threshold)
-    for key in cleaned_data.keys():
-        cleaned_data[key] = cleaned_data[key].reset_index(drop=True)
-    cleaned_data = fill_glucose_level_data_continuous(cleaned_data, time_step)
-    return cleaned_data
+
 
 
 def model(train_x, validX, validY, train_y, look_back):

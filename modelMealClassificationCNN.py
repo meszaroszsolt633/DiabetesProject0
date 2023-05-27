@@ -1,9 +1,11 @@
 import pandas as pd
 from defines import *
+from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
+    fill_glucose_level_data_continuous
 import numpy as np
 from statistics import stdev
 from scipy import signal
-from model import data_preparation, create_dataset
+from model import create_dataset
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
@@ -11,12 +13,22 @@ import tensorflow as tf
 from scipy import ndimage
 from keras.models import Model
 from keras import metrics, Sequential
-from keras.layers import Input, LSTM, Dense, Dropout, Conv1D, MaxPooling1D, Flatten
+from keras.layers import Input, LSTM, Dense, Dropout, Conv1D, MaxPooling1D, Flatten, Bidirectional
 from sklearn.preprocessing import MinMaxScaler
 from imblearn.over_sampling import SMOTE
 import tensorflow_addons as tfa
 
-
+def data_preparation(data: dict[str, pd.DataFrame], time_step: pd.Timedelta, missing_count_threshold,
+                     missing_eat_threshold) -> dict[str, pd.DataFrame]:
+    cleaned_data = drop_days_with_missing_glucose_data(data, missing_count_threshold)
+    print('Glucose drop done')
+    cleaned_data = drop_days_with_missing_eat_data(cleaned_data, missing_eat_threshold)
+    print('Meal drop done')
+    for key in cleaned_data.keys():
+        cleaned_data[key] = cleaned_data[key].reset_index(drop=True)
+    cleaned_data = fill_glucose_level_data_continuous(cleaned_data, time_step)
+    print('Glucose fill done')
+    return cleaned_data
 
 def normalize(data, train_split):
     data_mean = data[:train_split].mean(axis=0)
@@ -74,7 +86,7 @@ def show_plot(plot_data, delta, title):
     return
 
 
-def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50):
+def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001):
 
 
     #TRAIN
@@ -147,14 +159,21 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
     print("validX:",validX.shape)
     print("validY:", validY.shape)
 
+    if(modelnumber==1):
+        modelCNN(trainX, validX, validY, trainY, epochnumber,learning_rate)
+    if(modelnumber==2):
+        model_meal_RNN_1DCONV(trainX, validX, validY, trainY, epochnumber,learning_rate)
+    else:
+        return print("Wrong model number")
 
-    modelCNN(trainX, validX, validY, trainY, epochnumber)
 
-
-def modelCNN(train_x, validX, validY, train_y,epochnumber):
+def modelCNN(train_x, validX, validY, train_y,epochnumber,learning_rate=0.001):
 
     path_checkpoint = "modelMealCNN_checkpoint.h5"
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=5)
+    opt = keras.optimizers.Adam(learning_rate=learning_rate)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=10)
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
         filepath=path_checkpoint,
@@ -176,7 +195,7 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
     model.add(Dense(128, activation='relu'))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",
+    model.compile(loss="binary_crossentropy", optimizer=opt, metrics=["accuracy",
                                                                          tf.keras.metrics.Precision(name="precision"),
                                                                          tf.keras.metrics.Recall(name="recall"),
                                                                          tf.keras.metrics.AUC(name="auc"),
@@ -184,7 +203,7 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
                                                                                              average='macro',
                                                                                              threshold=0.5)
                                                                          ])
-    history=model.fit(train_x, train_y, epochs=epochnumber, callbacks=[ es_callback,modelckpt_callback], verbose=1, shuffle=False,
+    history=model.fit(train_x, train_y, epochs=epochnumber, callbacks=[ es_callback,reduce_lr,modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
     prediction = model.predict(validX)
     # Prediction and actual data plot
@@ -202,13 +221,77 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber):
    #plt.legend()
    #plt.show()
 
+def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_rate=0.001):
+    model = keras.Sequential()
+
+    opt = keras.optimizers.Adam(learning_rate=lrnng_rate)
+    path_checkpoint = "modelMeal_checkpoint.h5"
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=10)
+    modelckpt_callback = keras.callbacks.ModelCheckpoint(
+        monitor="val_loss",
+        filepath=path_checkpoint,
+        verbose=1,
+        save_weights_only=True,
+        save_best_only=True,
+    )
+
+    # Conv1D layers
+    model.add(Conv1D(filters=256, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], 1)))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(Dropout(0.3))
+
+    model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(Dropout(0.3))
+
+    # LSTM layers
+    model.add(Bidirectional(LSTM(256, return_sequences=True)))
+    model.add(Dropout(0.4))
+    model.add(Bidirectional(LSTM(256, return_sequences=False)))
+    model.add(Dropout(0.4))
+
+    # Dense output layer
+    model.add(Dense(1, activation='sigmoid'))
+
+    model.summary()
+    model.compile(loss="binary_crossentropy", optimizer=opt, metrics=["accuracy",
+                                                                         tf.keras.metrics.Precision(name="precision"),
+                                                                         tf.keras.metrics.Recall(name="recall"),
+                                                                         tf.keras.metrics.AUC(name="auc"),
+                                                                         tfa.metrics.F1Score(num_classes=1,
+                                                                                             average='macro',
+                                                                                             threshold=0.5)
+                                                                         ])
+    history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[es_callback,reduce_lr,modelckpt_callback], verbose=1, shuffle=False,
+              validation_data=(validX, validY))
+
+    prediction = model.predict(validX)
+    #Prediction and actual data plot
+    plt.figure(figsize=(20, 6))
+    plt.plot(prediction[0:1440 * 3], label='prediction')
+    plt.plot(validY[0:1440 * 3], label='test_data')
+    plt.legend()
+    plt.show()
+    #Loss and validation loss plot
+   #plt.plot(history.history['loss'],  label='Training loss')
+   #plt.plot(history.history['val_loss'],  label='Validation loss')
+   #plt.title('Training VS Validation loss')
+   #plt.xlabel('No. of Epochs')
+   #plt.ylabel('Loss')
+   #plt.legend()
+   #plt.show()
 
 if __name__ == "__main__":
-    dataTrain, patient_data = load(TRAIN2_544_PATH)
-    dataValidation, patient_data = load(TEST2_544_PATH)
-    dataTrain = data_preparation(dataTrain, pd.Timedelta(5, "m"), 30, 3)
-    dataValidation = data_preparation(dataValidation, pd.Timedelta(5, "m"), 30, 3)
-    model2(dataTrain,dataValidation,60,10,200)
+    train, patient_data = load(TRAIN2_544_PATH)
+    test, patient_data = load(TEST2_544_PATH)
+    #train, test = load_everything()
+  #print('load done')
+    train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
+  #print('train prep done')
+    test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
+  #print('valid prep done')
+    model2(train,test,50,10,200,2,0.005)
 
 
 
