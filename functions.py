@@ -218,6 +218,13 @@ def create_increasing_rows_fixed(amount, datetime, avg):
         rows.loc[i] = pd.Series({'ts': dt, 'value': math.floor(avg)})
     return rows
 
+def create_increasing_rows_meal(amount,  avg):
+    rows = pd.DataFrame(index=np.arange(0, amount), columns=['carbs'])
+
+
+    for i in range(0, amount):
+        rows.loc[i] = pd.Series({'carbs': math.floor(avg)})
+    return rows
 
 def create_decreasing_rows_fixed(amount, datetime, value):
     rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
@@ -352,14 +359,14 @@ def fill_end_meal_with_zeros(data: dict[str, pd.DataFrame], time_step: pd.Timede
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
 
-    # mindenekelőtt megnézzük hogy az első elem az első glükóz óra környékén van e
+    #kimentjük az utolsó meal órát is
     first_timestamp = pd.Timestamp(year=cleaned_data['meal']['ts'].iloc[-1].year,
                                    month=cleaned_data['meal']['ts'].iloc[-1].month,
                                    day=cleaned_data['meal']['ts'].iloc[-1].day,
                                    hour=cleaned_data['meal']['ts'].iloc[-1].hour,
                                    minute=cleaned_data['meal']['ts'].iloc[-1].minute,
                                    second=cleaned_data['meal']['ts'].iloc[-1].second)
-    # kimentjük az első glükóz órát egy változóba
+    # kimentjük az utolsó glükóz órát egy változóba
     last_timestamp = pd.Timestamp(year=cleaned_data['glucose_level']['ts'].iloc[-1].year,
                              month=cleaned_data['glucose_level']['ts'].iloc[-1].month,
                              day=cleaned_data['glucose_level']['ts'].iloc[-1].day,
@@ -367,11 +374,11 @@ def fill_end_meal_with_zeros(data: dict[str, pd.DataFrame], time_step: pd.Timede
                              minute=cleaned_data['glucose_level']['ts'].iloc[-1].minute,
                              second=cleaned_data['glucose_level']['ts'].iloc[-1].second)
     # megnézzük a különbséget
-    first_amount = last_timestamp - first_timestamp
-    if first_amount > pd.Timedelta(10, 'm'):
+    amount = last_timestamp - first_timestamp
+    if amount > pd.Timedelta(10, 'm'):
         # megnézzük mennyi elem hiányzik
-        first_amount_missing = math.floor(first_amount.total_seconds() / time_step.total_seconds()) - 1
-        df_to_insert = create_increasing_rows_fixed(first_amount_missing, first_timestamp, 0)
+        first_amount_missing = math.floor(amount.total_seconds() / time_step.total_seconds()) - 1
+        df_to_insert = create_increasing_rows_meal(first_amount_missing, 0)
         cleaned_data['meal'] = insert_row(-1, cleaned_data['meal'], df_to_insert)
 
     return cleaned_data
@@ -466,6 +473,8 @@ def fill_glucose_level_data_fixed(data: dict[str, pd.DataFrame], time_step: pd.T
                 corrector += missing_amount
         prev_ts = ts
     return cleaned_data
+
+
 # endregion
 
 def avg_calculator(data: dict[str, pd.DataFrame]):
@@ -591,11 +600,67 @@ def count_continuous_glucose_windows(data, thresholdglucose: int, time_step=pd.T
 
     return count
 
+def fill_glucose_level_data_with_zeros_start(data, time_step):
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
+
+    # mindenekelőtt megnézzük hogy az első elem 0 óra környékén van e
+    first_timestamp = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
+                                   month=data['glucose_level']['ts'][0].month,
+                                   day=data['glucose_level']['ts'][0].day,
+                                   hour=data['glucose_level']['ts'][0].hour,
+                                   minute=data['glucose_level']['ts'][0].minute,
+                                   second=data['glucose_level']['ts'][0].second)
+    # kimentjük a 0 órát egy változóba
+    hour_zero = pd.Timestamp(year=data['glucose_level']['ts'][0].year,
+                             month=data['glucose_level']['ts'][0].month,
+                             day=data['glucose_level']['ts'][0].day,
+                             hour=0, minute=0, second=0)
+    # megnézzük a különbséget
+    first_amount = first_timestamp - hour_zero
+    if first_amount > pd.Timedelta(10, 'm'):
+        # megnézzük mennyi elem hiányzik
+        first_amount_missing = math.floor(first_amount.total_seconds() / time_step.total_seconds()) - 1
+        df_to_insert = create_decreasing_rows_fixed(first_amount_missing, hour_zero, 0)
+        cleaned_data['glucose_level'] = insert_row(0, cleaned_data['glucose_level'], df_to_insert)
+
+    return cleaned_data
+
+def fill_glucose_level_data_zeros_end(data, time_step):
+    cleaned_data = {}
+    for key in data.keys():
+        cleaned_data[key] = data[key].__deepcopy__()
+
+    # kimentjük az utolsó meal órát is
+    first_timestamp = pd.Timestamp(year=cleaned_data['glucose_level']['ts'].iloc[-1].year,
+                                   month=cleaned_data['glucose_level']['ts'].iloc[-1].month,
+                                   day=cleaned_data['glucose_level']['ts'].iloc[-1].day,
+                                   hour=cleaned_data['glucose_level']['ts'].iloc[-1].hour,
+                                   minute=cleaned_data['glucose_level']['ts'].iloc[-1].minute,
+                                   second=cleaned_data['glucose_level']['ts'].iloc[-1].second)
+    # kimentjük az utolsó glükóz órát egy változóba
+    last_timestamp = pd.Timestamp(year=cleaned_data['glucose_level']['ts'].iloc[-1].year,
+                                  month=cleaned_data['glucose_level']['ts'].iloc[-1].month,
+                                  day=cleaned_data['glucose_level']['ts'].iloc[-1].day,
+                                  hour=23, minute=59, second=0)
+    # megnézzük a különbséget
+    amount = last_timestamp - first_timestamp
+    if amount > pd.Timedelta(10, 'm'):
+        # megnézzük mennyi elem hiányzik
+        first_amount_missing = math.floor(amount.total_seconds() / time_step.total_seconds()) - 1
+        df_to_insert = create_increasing_rows_meal(first_amount_missing, 0)
+        cleaned_data['meal'] = insert_row(-1, cleaned_data['meal'], df_to_insert)
+
+    return cleaned_data
+
 def fill_glucose_level_data_with_zeros(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
     cleaned_data = {}
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
     prev_ts = None
+
+    cleaned_data = fill_glucose_level_data_with_zeros_start(cleaned_data, time_step)
     #mivel a ciklusban nem frissül az indexelés, azaz a régi adatbázison fut végig, kell 1 korrekció
     #amivel a beszúrást oldjuk meg. (ha beszúrunk 5 elemet a 65 index után, a 66. elem a régi 66. elem lesz
     # nem pedig az új beszúrt)
@@ -603,7 +668,7 @@ def fill_glucose_level_data_with_zeros(data: dict[str, pd.DataFrame], time_step:
     for idx, ts in enumerate(cleaned_data['glucose_level']['ts']):
         if prev_ts is not None:
             dt = ts - prev_ts
-            if pd.Timedelta(1,'d') > dt >= time_step + time_step:
+            if dt >= time_step + time_step:
                 # megnézzük mennyi hiányzik
                 missing_amount = math.floor(dt.total_seconds() / time_step.total_seconds()) - 1
 
@@ -614,7 +679,10 @@ def fill_glucose_level_data_with_zeros(data: dict[str, pd.DataFrame], time_step:
                 cleaned_data['glucose_level'] = insert_row(idx+corrector, cleaned_data['glucose_level'], df_to_insert)
                 corrector += missing_amount
         prev_ts = ts
+    cleaned_data = fill_glucose_level_data_zeros_end(cleaned_data, time_step)
     return cleaned_data
+
+
 
 def count_continuous_glucose_windows_overlapping(data, thresholdglucose: int, time_step=pd.Timedelta(5, 'm')):
     data_filled = {}
@@ -686,27 +754,75 @@ def get_data_without_zeros(data):
 def load_everything():
     train_dict = {}
     for filepaths in ALL_TRAIN_FILE_PATHS:
+        print(filepaths)
         temp_data, temp_patient_data = load(filepaths)
+        temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
+        temp_data = drop_meal_days(temp_data)
+        temp_data = fill_meal_with_zeros(temp_data)
         for key, value in temp_data.items():
             if key in train_dict:
                 train_dict[key] = pd.concat([train_dict[key], value])
+                train_dict[key] = train_dict[key].reset_index(drop=True)
             else:
                 train_dict[key] = value
+                train_dict[key] = train_dict[key].reset_index(drop=True)
     test_dict = {}
     for filepaths in ALL_TEST_FILE_PATHS:
         temp_data, temp_patient_data = load(filepaths)
+        temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
+        temp_data = drop_meal_days(temp_data)
+        temp_data = fill_meal_with_zeros(temp_data)
         for key, value in temp_data.items():
             if key in test_dict:
                 test_dict[key] = pd.concat([test_dict[key], value])
+                test_dict[key] = test_dict[key].reset_index(drop=True)
             else:
                 test_dict[key] = value
+                test_dict[key] = test_dict[key].reset_index(drop=True)
     return train_dict, test_dict
+
+def fill_meal_with_zeros(data):
+
+    prev_match_idx = 0
+    corrector = 0
+    for idx in range(len(data['meal'])):
+        timestamp_to_match = data['meal']['ts'].iloc[idx+corrector]
+
+        # Step 2: Define the time window
+        window_start = timestamp_to_match - pd.Timedelta(minutes=5)
+        window_end = timestamp_to_match + pd.Timedelta(minutes=5)
+
+        # Step 3: Find the index of the first row in df1 that falls within the time window
+        matching_index = data['glucose_level'].index[(data['glucose_level']['ts'] >= window_start) & (data['glucose_level']['ts'] <= window_end)].tolist()[0]
+        print(matching_index)
+        if matching_index == 2451:
+            print(')')
+        amount = matching_index- prev_match_idx
+        prev_match_idx = matching_index
+        df_to_insert = create_increasing_rows_meal(amount, 0)
+
+        # beszúrjuk az új dataframeünket az eredetibe
+        data['meal'] = insert_row(idx + corrector, data['meal'], df_to_insert)
+        corrector += amount
+    data = fill_end_meal_with_zeros(data,pd.Timedelta(minutes=5))
+    return data
+
+def drop_meal_days(data):
+    # Step 1: Extract the unique dates from the "glucose level" dataset
+    glucose_dates = pd.to_datetime(data['glucose_level']['ts']).dt.date.unique()  # Replace 'timestamp_column_name' with the actual column name
+    print('Meal hossza: ', len(data['meal']))
+    # Step 2: Filter the "meal" dataset to keep only the rows where the date exists in the "glucose level" dataset
+    data['meal'] = data['meal'][pd.to_datetime(data['meal']['ts']).dt.date.isin(glucose_dates)]
+    print('Törlés után: ', len(data['meal']))
+
+    return data
 
 if __name__ == "__main__":  # runs only if program was ran from this file, does not run when imported
     #data, patient_data = load(TEST2_540_PATH)
     #dropped_data = drop_days_with_missing_eat_data(data,3)
     #print('ok')
     train,test = load_everything()
+    print(" ")
     #data_glucose = fill_glucose_level_data_with_zeros(data, pd.Timedelta(5,'m'))
     #data_filled = fill_meal_zeros(data_glucose,pd.Timedelta(5,'m'))
     print('.')
