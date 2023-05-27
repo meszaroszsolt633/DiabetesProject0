@@ -86,7 +86,7 @@ def show_plot(plot_data, delta, title):
     return
 
 
-def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001):
+def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
 
 
     #TRAIN
@@ -146,8 +146,14 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
     scaler = MinMaxScaler(feature_range=(0, 1))
     featurestrain=scaler.fit_transform(featurestrain)
     featuresvalidation=scaler.transform(featuresvalidation)
-
-
+    if(oversampling==True):
+        trainY=featurestrain[:,0]
+        trainX = featurestrain[:, 1]
+        trainY = trainY.reshape(-1, 1)
+        trainX = trainX.reshape(-1, 1)
+        smote = SMOTE(random_state=42)
+        trainX, trainY = smote.fit_resample(trainX, trainY)
+        featurestrain = np.column_stack((trainY, trainX))
     trainX,trainY = create_dataset(featurestrain, lookback)
     validX,validY = create_dataset(featuresvalidation, lookback)
 
@@ -171,7 +177,7 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber,learning_rate=0.001):
 
     path_checkpoint = "modelMealCNN_checkpoint.h5"
     opt = keras.optimizers.Adam(learning_rate=learning_rate)
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=10)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=15)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
 
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
@@ -227,7 +233,7 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
     opt = keras.optimizers.Adam(learning_rate=lrnng_rate)
     path_checkpoint = "modelMeal_checkpoint.h5"
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=10)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=15)
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
         filepath=path_checkpoint,
@@ -291,7 +297,7 @@ if __name__ == "__main__":
   #print('train prep done')
     test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
   #print('valid prep done')
-    model2(train,test,50,10,200,2,0.005)
+    model2(train,test,50,10,200,2,0.005,True)
 
 
 
