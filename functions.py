@@ -649,7 +649,7 @@ def fill_glucose_level_data_zeros_end(data, time_step):
     if amount > pd.Timedelta(10, 'm'):
         # megnézzük mennyi elem hiányzik
         first_amount_missing = math.floor(amount.total_seconds() / time_step.total_seconds()) - 1
-        df_to_insert = create_increasing_rows_meal(first_amount_missing, 0)
+        df_to_insert = create_increasing_rows_fixed(first_amount_missing, first_timestamp, 0)
         cleaned_data['meal'] = insert_row(-1, cleaned_data['meal'], df_to_insert)
 
     return cleaned_data
