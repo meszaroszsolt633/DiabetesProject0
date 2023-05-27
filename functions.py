@@ -643,14 +643,14 @@ def fill_glucose_level_data_zeros_end(data, time_step):
     last_timestamp = pd.Timestamp(year=cleaned_data['glucose_level']['ts'].iloc[-1].year,
                                   month=cleaned_data['glucose_level']['ts'].iloc[-1].month,
                                   day=cleaned_data['glucose_level']['ts'].iloc[-1].day,
-                                  hour=23, minute=59, second=0)
+                                  hour=23, minute=59, second=00)
     # megnézzük a különbséget
     amount = last_timestamp - first_timestamp
     if amount > pd.Timedelta(10, 'm'):
         # megnézzük mennyi elem hiányzik
         first_amount_missing = math.floor(amount.total_seconds() / time_step.total_seconds()) - 1
         df_to_insert = create_increasing_rows_fixed(first_amount_missing, first_timestamp, 0)
-        cleaned_data['meal'] = insert_row(-1, cleaned_data['meal'], df_to_insert)
+        cleaned_data['glucose_level'] = insert_row(-1, cleaned_data['glucose_level'], df_to_insert)
 
     return cleaned_data
 
@@ -822,6 +822,10 @@ if __name__ == "__main__":  # runs only if program was ran from this file, does 
     #dropped_data = drop_days_with_missing_eat_data(data,3)
     #print('ok')
     train,test = load_everything()
+   #temp_data, temp_patient_data = load(TEST_559_PATH)
+   #temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
+   #temp_data = drop_meal_days(temp_data)
+   #temp_data = fill_meal_with_zeros(temp_data)
     print(" ")
     #data_glucose = fill_glucose_level_data_with_zeros(data, pd.Timedelta(5,'m'))
     #data_filled = fill_meal_zeros(data_glucose,pd.Timedelta(5,'m'))
