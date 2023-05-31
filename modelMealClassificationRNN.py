@@ -5,6 +5,8 @@ from functions import load_everything, drop_days_with_missing_glucose_data, drop
 import numpy as np
 from statistics import stdev
 from scipy import signal
+
+from modelMealClassificationCNN import data_preparation
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
@@ -94,38 +96,46 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     # TRAIN
 
     feature_train1 = dataTrain['glucose_level']
-    feature_train1 = feature_train1.drop(['ts'], axis=1)
+    feature_train1['carbs'] = ""
+    feature_train1['carbs'] = feature_train1['carbs'].apply(lambda x: 0)
 
     feature_train2 = dataTrain['meal']
-    feature_train2 = feature_train2.drop(['type', 'ts'], axis=1)
-    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1 if int(x) > 0 else x)
+    feature_train2 = feature_train2.drop(['type'], axis=1)
+    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1)
 
-    features_train = pd.concat([feature_train1, feature_train2], axis=1)
+    features_train = pd.concat([feature_train1, feature_train2])
+    features_train = features_train.sort_values(by='ts', ignore_index=True)
 
-    features_train_y = np.array(features_train['carbs'], dtype=np.float64)
+    features_train_y = features_train['carbs']
     features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
     features_train_y = pd.DataFrame(features_train_y)
 
-    features_train_x = np.array(features_train['value'], dtype=np.float64)
+    features_train_x = features_train['value']
     features_train_x = pd.DataFrame(features_train_x)
+    features_train_x = features_train_x.fillna(method='ffill')
+    features_train_x['value'] = features_train_x['value'].astype('float64')
 
     # VALIDATION
 
     feature_validation1 = dataValidation['glucose_level']
-    feature_validation1 = feature_validation1.drop(['ts'], axis=1)
+    feature_validation1['carbs'] = ""
+    feature_validation1['carbs'] = feature_validation1['carbs'].apply(lambda x: 0)
 
     feature_validation2 = dataValidation['meal']
-    feature_validation2 = feature_validation2.drop(['type', 'ts'], axis=1)
-    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1 if int(x) > 0 else x)
+    feature_validation2 = feature_validation2.drop(['type'], axis=1)
+    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1)
 
-    features_validation = pd.concat([feature_validation1, feature_validation2], axis=1)
+    features_validation = pd.concat([feature_validation1, feature_validation2])
+    features_validation = features_validation.sort_values(by='ts', ignore_index=True)
 
-    features_validation_y = np.array(features_validation['carbs'], dtype=np.float64)
+    features_validation_y = features_validation['carbs']
     features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
     features_validation_y = pd.DataFrame(features_validation_y)
 
-    features_validation_x = np.array(features_validation['value'], dtype=np.float64)
+    features_validation_x = features_validation['value']
     features_validation_x = pd.DataFrame(features_validation_x)
+    features_validation_x = features_validation_x.fillna(method='ffill')
+    features_validation_x['value'] = features_validation_x['value'].astype('float64')
 
     featuresvalidation = pd.concat([features_validation_y, features_validation_x], axis=1)
     featurestrain = pd.concat([features_train_y, features_train_x], axis=1)
@@ -175,9 +185,9 @@ def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
 
     model.add(LSTM(256, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(Dropout(0.3))
-    model.add(LSTM(256, return_sequences=True))
+    model.add(LSTM(128, return_sequences=True))
     model.add(Dropout(0.3))
-    model.add(LSTM(256, return_sequences=False))
+    model.add(LSTM(64, return_sequences=False))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation="sigmoid"))
 
@@ -204,7 +214,9 @@ def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
 
 if __name__ == "__main__":
     #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-    train, test = load_everything()
-    # train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
-    # test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
+    #train, test = load_everything()
+    train,patientdata=load(TRAIN2_540_PATH)
+    test,patientdata=load(TEST2_540_PATH)
+    train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
+    test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
     model_base_RNN(dataTrain=train,dataValidation=test,lookback=50,maxfiltersize=10,epochnumber=200,modelnumber=2,learning_rate=0.001,oversampling=False)
