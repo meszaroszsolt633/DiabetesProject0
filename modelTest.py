@@ -3,7 +3,6 @@ from defines import *
 import numpy as np
 from statistics import stdev
 from scipy import signal
-from model import data_preparation
 from modelMealClassificationRNN import count_ones_and_zeros
 from xml_read import load
 import matplotlib.pyplot as plt

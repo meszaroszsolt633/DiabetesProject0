@@ -98,7 +98,7 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
 
     feature_train2 = dataTrain['meal']
     feature_train2 = feature_train2.drop(['type', 'ts'], axis=1)
-    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1 if x > 0 else x)
+    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1 if int(x) > 0 else x)
 
     features_train = pd.concat([feature_train1, feature_train2], axis=1)
 
@@ -116,7 +116,7 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
 
     feature_validation2 = dataValidation['meal']
     feature_validation2 = feature_validation2.drop(['type', 'ts'], axis=1)
-    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1 if x >0 else x)
+    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1 if int(x) >0 else x)
 
     features_validation = pd.concat([feature_validation1, feature_validation2], axis=1)
 
