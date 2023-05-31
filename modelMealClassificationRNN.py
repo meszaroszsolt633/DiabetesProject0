@@ -85,9 +85,9 @@ def show_plot(plot_data, delta, title):
 def create_dataset(dataset, look_back=1):
     dataX, dataY = [], []
     for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back), 0]
+        a = dataset[i:(i + look_back), 1]
         dataX.append(a)
-        dataY.append(dataset[(i + look_back), 1])
+        dataY.append(dataset[i, 0])
     return np.array(dataX), np.array(dataY)
 
 def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50, modelnumber=1, learning_rate=0.001, oversampling=False):
