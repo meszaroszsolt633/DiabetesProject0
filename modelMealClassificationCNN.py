@@ -91,56 +91,42 @@ def show_plot(plot_data, delta, title):
 
 
 def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
-
-
-    #TRAIN
+    # TRAIN
 
     feature_train1 = dataTrain['glucose_level']
-    feature_train1['carbs'] = ""
-    feature_train1['carbs'] = feature_train1['carbs'].apply(lambda x: 0)
+    feature_train1 = feature_train1.drop(['ts'], axis=1)
 
     feature_train2 = dataTrain['meal']
-    feature_train2 = feature_train2.drop(['type'], axis=1)
-    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1)
+    feature_train2 = feature_train2.drop(['type', 'ts'], axis=1)
 
-    features_train = pd.concat([feature_train1, feature_train2])
-    features_train = features_train.sort_values(by='ts', ignore_index=True)
+    features_train = pd.concat([feature_train1, feature_train2], axis=1)
 
-    features_train_y = features_train['carbs']
+    features_train_y = np.array(features_train['carbs'], dtype=np.float64)
     features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
     features_train_y = pd.DataFrame(features_train_y)
 
-    features_train_x = features_train['value']
+    features_train_x = np.array(features_train['value'], dtype=np.float64)
     features_train_x = pd.DataFrame(features_train_x)
-    features_train_x = features_train_x.fillna(method='ffill')
-    features_train_x['value'] = features_train_x['value'].astype('float64')
 
-
-    #VALIDATION
+    # VALIDATION
 
     feature_validation1 = dataValidation['glucose_level']
-    feature_validation1['carbs'] = ""
-    feature_validation1['carbs'] = feature_validation1['carbs'].apply(lambda x: 0)
+    feature_validation1 = feature_validation1.drop(['ts'], axis=1)
 
     feature_validation2 = dataValidation['meal']
-    feature_validation2 = feature_validation2.drop(['type'], axis=1)
-    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1)
+    feature_validation2 = feature_validation2.drop(['type', 'ts'], axis=1)
 
-    features_validation = pd.concat([feature_validation1, feature_validation2])
-    features_validation = features_validation.sort_values(by='ts', ignore_index=True)
+    features_validation = pd.concat([feature_validation1, feature_validation2], axis=1)
 
-    features_validation_y = features_validation['carbs']
+    features_validation_y = np.array(features_validation['carbs'], dtype=np.float64)
     features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
     features_validation_y = pd.DataFrame(features_validation_y)
 
-    features_validation_x = features_validation['value']
+    features_validation_x = np.array(features_validation['value'], dtype=np.float64)
     features_validation_x = pd.DataFrame(features_validation_x)
-    features_validation_x = features_validation_x.fillna(method='ffill')
-    features_validation_x['value'] = features_validation_x['value'].astype('float64')
 
-
-    featuresvalidation  = pd.concat([features_validation_y, features_validation_x], axis=1)
-    featurestrain=pd.concat([features_train_y,features_train_x],axis=1)
+    featuresvalidation = pd.concat([features_validation_y, features_validation_x], axis=1)
+    featurestrain = pd.concat([features_train_y, features_train_x], axis=1)
 
     featurestrain.columns = featurestrain.columns.astype(str)
     featuresvalidation.columns = featuresvalidation.columns.astype(str)
@@ -287,11 +273,11 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
    #plt.show()
 
 if __name__ == "__main__":
-    train, patient_data = load(TRAIN2_544_PATH)
-    test, patient_data = load(TEST2_544_PATH)
-    #train, test= loadeveryxml()
-    train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
-    test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
+    #train, patient_data = load(TRAIN2_544_PATH)
+    #test, patient_data = load(TEST2_544_PATH)
+    train, test= load_everything()
+    #train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
+    #test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
     model2(dataTrain=train,dataValidation=test,lookback=50,maxfiltersize=10,epochnumber=200,modelnumber=2,learning_rate=0.001,oversampling=False)
 
 

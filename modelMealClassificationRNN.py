@@ -1,21 +1,21 @@
 import pandas as pd
 from defines import *
-from model import *
+from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
+    fill_glucose_level_data_continuous
+import numpy as np
 from statistics import stdev
 from scipy import signal
-from xml_read import *
-from xml_write import *
-from model import *
+from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
 import tensorflow as tf
 from scipy import ndimage
 from keras.models import Model
-from keras.layers import Input, LSTM, Conv1D, MaxPooling1D
-from keras.layers import Dense
-import numpy as np
+from keras import metrics, Sequential
+from keras.layers import Input, LSTM, Dense, Dropout, Conv1D, MaxPooling1D, Flatten, Bidirectional
 from sklearn.preprocessing import MinMaxScaler
-#import tensorflow_addons as tfa
+from imblearn.over_sampling import SMOTE
+import tensorflow_addons as tfa
 
 
 def count_ones_and_zeros(array):
@@ -32,6 +32,18 @@ def normalize(data, train_split):
     data_std = data[:train_split].std(axis=0)
     return (data - data_mean) / data_std
 
+def train_test_valid_split(glucose_data: pd.DataFrame):
+    cleaned_data = {}
+    for key in glucose_data.keys():
+        cleaned_data[key] = glucose_data[key].__deepcopy__()
+    cleaned_data = pd.DataFrame(cleaned_data)
+    cleaned_data.columns = cleaned_data.columns.astype(str)
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    cleaned_data = scaler.fit_transform(cleaned_data)
+    idx = int(0.8 * int(cleaned_data.shape[0]))
+    train_x = cleaned_data[:idx]
+    test_x = cleaned_data[idx:]
+    return train_x,  test_x
 
 def visualize_loss(history, title):
     loss = history.history["loss"]
@@ -45,6 +57,8 @@ def visualize_loss(history, title):
     plt.ylabel("Loss")
     plt.legend()
     plt.show()
+
+
 
 
 def show_plot(plot_data, delta, title):
@@ -68,31 +82,16 @@ def show_plot(plot_data, delta, title):
     plt.show()
     return
 
-
-def train_valid_split(glucose_data: pd.DataFrame,train_ratio):
-    cleaned_data = {}
-    for key in glucose_data.keys():
-        cleaned_data[key] = glucose_data[key].__deepcopy__()
-    cleaned_data = pd.DataFrame(cleaned_data)
-    # scaler = MinMaxScaler(feature_range=(0, 1))
-    # cleaned_data = scaler.fit_transform(cleaned_data)
-    idx = int(train_ratio * int(cleaned_data.shape[0]))
-    train_x = cleaned_data[:idx]
-    test_x = cleaned_data[idx:]
-    return train_x, test_x
-
 def create_dataset(dataset, look_back=1):
     dataX, dataY = [], []
     for i in range(len(dataset) - look_back - 1):
         a = dataset[i:(i + look_back), 0]
         dataX.append(a)
-        dataY.append(dataset[(i + look_back), 0])
+        dataY.append(dataset[(i + look_back), 1])
     return np.array(dataX), np.array(dataY)
 
-def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50):
-
-
-    #TRAIN
+def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
+    # TRAIN
 
     feature_train1 = dataTrain['glucose_level']
     feature_train1['carbs'] = ""
@@ -106,10 +105,6 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     features_train = features_train.sort_values(by='ts', ignore_index=True)
 
     features_train_y = features_train['carbs']
-    count_zeros, count_ones = count_ones_and_zeros(features_train_y)
-    print("train:\n")
-    print(f"Number of 0s: {count_zeros}")
-    print(f"Number of 1s: {count_ones}")
     features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
     features_train_y = pd.DataFrame(features_train_y)
 
@@ -118,8 +113,7 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     features_train_x = features_train_x.fillna(method='ffill')
     features_train_x['value'] = features_train_x['value'].astype('float64')
 
-
-    #VALIDATION
+    # VALIDATION
 
     feature_validation1 = dataValidation['glucose_level']
     feature_validation1['carbs'] = ""
@@ -133,10 +127,6 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     features_validation = features_validation.sort_values(by='ts', ignore_index=True)
 
     features_validation_y = features_validation['carbs']
-    count_zeros, count_ones = count_ones_and_zeros(features_validation_y)
-    print("validation:\n")
-    print(f"Number of 0s: {count_zeros}")
-    print(f"Number of 1s: {count_ones}")
     features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
     features_validation_y = pd.DataFrame(features_validation_y)
 
@@ -145,46 +135,33 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     features_validation_x = features_validation_x.fillna(method='ffill')
     features_validation_x['value'] = features_validation_x['value'].astype('float64')
 
-    count_zeros, count_ones = count_ones_and_zeros(features_train_y)
-    print("train:\n")
-    print(f"Number of 0s: {count_zeros}")
-    print(f"Number of 1s: {count_ones}")
+    featuresvalidation = pd.concat([features_validation_y, features_validation_x], axis=1)
+    featurestrain = pd.concat([features_train_y, features_train_x], axis=1)
 
-    count_zeros, count_ones = count_ones_and_zeros(features_validation_y)
-    print("validation:\n")
-    print(f"Number of 0s: {count_zeros}")
-    print(f"Number of 1s: {count_ones}")
-
-    # Use if data separation is needed, use only one dataframe
-    #train, valid = train_test_valid_split(features_train_combined,0.8)
-    #trainX, trainY = create_dataset(train, look_back)
-    #validX, validY = create_dataset(valid, look_back)
-
-
-
+    featurestrain.columns = featurestrain.columns.astype(str)
+    featuresvalidation.columns = featuresvalidation.columns.astype(str)
 
     scaler = MinMaxScaler(feature_range=(0, 1))
-    features_train_x = pd.DataFrame(scaler.fit_transform(features_train_x.values), columns=features_train_x.columns,
-                                    index=features_train_x.index)
-    features_validation_x = pd.DataFrame(scaler.transform(features_validation_x.values),
-                                         columns=features_validation_x.columns, index=features_validation_x.index)
+    featurestrain = scaler.fit_transform(featurestrain)
+    featuresvalidation = scaler.transform(featuresvalidation)
+    if (oversampling == True):
+        trainY = featurestrain[:, 0]
+        trainX = featurestrain[:, 1]
+        trainY = trainY.reshape(-1, 1)
+        trainX = trainX.reshape(-1, 1)
+        smote = SMOTE(random_state=42)
+        trainX, trainY = smote.fit_resample(trainX, trainY)
+        featurestrain = np.column_stack((trainY, trainX))
+    trainX, trainY = create_dataset(featurestrain, lookback)
+    validX, validY = create_dataset(featuresvalidation, lookback)
 
+    trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
+    validX = np.reshape(validX, (validX.shape[0], validX.shape[1], 1))
 
-    trainY_np = features_train_y.values
-    validY_np = features_validation_y.values
-
-    trainX,trainY = create_dataset(features_train_x,trainY_np, lookback)
-    validX,validY = create_dataset(features_validation_x,validY_np, lookback)
-
-
-   #trainX = np.reshape(trainX.shape[0], trainX.shape[1], 1)
-   #validX = np.reshape(validX.shape[0], validX.shape[1], 1)
-
-    print("trainX:",trainX.shape)
-    print("trainY:",trainY.shape)
-    print("validX:",validX.shape)
+    print("trainX:", trainX.shape)
+    print("trainY:", trainY.shape)
+    print("validX:", validX.shape)
     print("validY:", validY.shape)
-
 
     model_meal_RNN(trainX, validX, validY, trainY, epochnumber)
 
@@ -203,43 +180,27 @@ def model_meal_RNN(train_x, validX, validY, train_y, epochnumber):
         save_best_only=True,
     )
 
-    model.add(LSTM(128, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(LSTM(256, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=True))
+    model.add(LSTM(256, return_sequences=True))
     model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=False))
+    model.add(LSTM(256, return_sequences=False))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation="sigmoid"))
 
     model.summary()
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",
-        tf.keras.metrics.Precision(name="precision"),
-        tf.keras.metrics.Recall(name="recall"),
-        tf.keras.metrics.AUC(name="auc"),
-        #tfa.metrics.F1Score(num_classes=1,average='macro',threshold=0.5)
-        ])
-    history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[modelckpt_callback], verbose=1, shuffle=False,
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=['accuracy',
+                                                                         metrics.Precision(name='precision'),
+                                                                         metrics.Recall(name='recall')])
+    model.fit(train_x, train_y, epochs=50, callbacks=[es_callback, modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
 
     prediction = model.predict(validX)
-    #Prediction and actual data plot
-   #plt.figure(figsize=(20, 6))
-   #plt.plot(prediction[0:1440 * 3], label='prediction')
-   #plt.plot(validY[0:1440 * 3], label='test_data')
-   #plt.legend()
-   #plt.show()
-    #Loss and validation loss plot
-    plt.plot(history.history['loss'],  label='Training loss')
-    plt.plot(history.history['val_loss'],  label='Validation loss')
-    plt.title('Training VS Validation loss')
-    plt.xlabel('No. of Epochs')
-    plt.ylabel('Loss')
+    plt.figure(figsize=(20, 6))
+    plt.plot(prediction[0:1440 * 3], label='prediction')
+    plt.plot(validY[0:1440 * 3], label='test_data')
     plt.legend()
     plt.show()
-
-
-
-
 
 if __name__ == "__main__":
     #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
