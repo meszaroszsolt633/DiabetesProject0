@@ -1,7 +1,7 @@
 import pandas as pd
 from defines import *
 from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
-    fill_glucose_level_data_continuous
+    fill_glucose_level_data_continuous, loadeveryxml
 import numpy as np
 from statistics import stdev
 from scipy import signal
@@ -84,6 +84,10 @@ def show_plot(plot_data, delta, title):
     plt.xlabel("Time-Step")
     plt.show()
     return
+
+
+
+
 
 
 def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
@@ -188,13 +192,7 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber,learning_rate=0.001):
         save_best_only=True,
     )
     model = Sequential()
-    model.add(Conv1D(filters=256, kernel_size=3, activation='relu', input_shape=(train_x.shape[1],train_x.shape[2])))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Dropout(0.3))
-    model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Dropout(0.3))
-    model.add(Conv1D(filters=32, kernel_size=3, activation='relu'))
+    model.add(Conv1D(filters=128, kernel_size=3, activation='relu', input_shape=(train_x.shape[1],train_x.shape[2])))
     model.add(MaxPooling1D(pool_size=2))
     model.add(Dropout(0.3))
     model.add(Flatten())
@@ -243,7 +241,7 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
     )
 
     # Conv1D layers
-    model.add(Conv1D(filters=256, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], 1)))
+    model.add(Conv1D(filters=256, kernel_size=3, activation='relu', input_shape=(train_x.shape[1],train_x.shape[2])))
     model.add(MaxPooling1D(pool_size=2))
     model.add(Dropout(0.3))
 
@@ -252,10 +250,10 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
     model.add(Dropout(0.3))
 
     # LSTM layers
-    model.add(Bidirectional(LSTM(256, return_sequences=True)))
-    model.add(Dropout(0.4))
-    model.add(Bidirectional(LSTM(256, return_sequences=False)))
-    model.add(Dropout(0.4))
+    model.add(LSTM(128, return_sequences=True))
+    model.add(Dropout(0.3))
+    model.add(LSTM(64, return_sequences=False))
+    model.add(Dropout(0.3))
 
     # Dense output layer
     model.add(Dense(1, activation='sigmoid'))
@@ -291,13 +289,10 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
 if __name__ == "__main__":
     train, patient_data = load(TRAIN2_544_PATH)
     test, patient_data = load(TEST2_544_PATH)
-    #train, test = load_everything()
-  #print('load done')
+    #train, test= loadeveryxml()
     train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
-  #print('train prep done')
     test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
-  #print('valid prep done')
-    model2(train,test,50,10,200,2,0.005,True)
+    model2(dataTrain=train,dataValidation=test,lookback=50,maxfiltersize=10,epochnumber=200,modelnumber=2,learning_rate=0.001,oversampling=False)
 
 
 

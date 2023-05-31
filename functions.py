@@ -51,6 +51,25 @@ def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> d
 
     return counts
 
+
+def loadeveryxml():
+    train_dicts = [load(f) for f in ALL_TRAIN_FILE_PATHS]
+    test_dicts = [load(f) for f in ALL_TEST_FILE_PATHS]
+
+    merged_train_data = {key: pd.DataFrame() for key in train_dicts[0][0].keys()}
+    merged_test_data = {key: pd.DataFrame() for key in test_dicts[0][0].keys()}
+
+    for train_dict in train_dicts:
+        for key in merged_train_data.keys():
+            if key in train_dict[0]:
+                merged_train_data[key] = pd.concat([merged_train_data[key], train_dict[0][key]], ignore_index=True)
+
+    for test_dict in test_dicts:
+        for key in merged_test_data.keys():
+            if key in test_dict[0]:
+                merged_test_data[key] = pd.concat([merged_test_data[key], test_dict[0][key]], ignore_index=True)
+
+    return merged_train_data,merged_test_data
 def missing_glucose_level_data(data):
     value=0
     current_day = pd.to_datetime(data['glucose_level']['ts'].iloc[0].date())
