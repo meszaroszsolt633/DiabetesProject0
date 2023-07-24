@@ -85,18 +85,36 @@ def show_plot(plot_data, delta, title):
     plt.show()
     return
 
+def traintestsplitter(dataTrain: pd.DataFrame):
+    dataTrain_70 = {}
+    dataTrain_30 = {}
 
+    # Define the split ratio (70% and 30%)
+    split_ratio = 0.7
 
+    # Loop through each key-value pair in the original dictionary
+    for key, dataframe in dataTrain.items():
+        # Calculate the number of rows to retain in the 70% data and 30% data
+        total_rows = len(dataframe)
+        rows_70 = int(total_rows * split_ratio)
 
+        # Split the data based on the row indices
+        data_70 = dataframe.iloc[:rows_70]
+        data_30 = dataframe.iloc[rows_70:]
 
+        # Store the split data into the new dictionaries
+        dataTrain_70[key] = data_70
+        dataTrain_30[key] = data_30
+    return dataTrain_70,dataTrain_30
 
-def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
+def model2(dataTrain, dataTest, lookback=50, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
 
+    dataTrain,dataValidation=traintestsplitter(dataTrain)
 
     #TRAIN
 
     feature_train1 = dataTrain['glucose_level']
-    feature_train1['carbs'] = ""
+    feature_train1.loc[:, 'carbs'] = ""
     feature_train1['carbs'] = feature_train1['carbs'].apply(lambda x: 0)
 
     feature_train2 = dataTrain['meal']
@@ -115,11 +133,33 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
     features_train_x = features_train_x.fillna(method='ffill')
     features_train_x['value'] = features_train_x['value'].astype('float64')
 
+    #TEST
+
+    featurestest1 = dataTest['glucose_level']
+    featurestest1.loc[:, 'carbs'] = ""
+    featurestest1['carbs'] = featurestest1['carbs'].apply(lambda x: 0)
+
+    featurestest2 = dataTest['meal']
+    featurestest2 = featurestest2.drop(['type'], axis=1)
+    featurestest2['carbs'] = featurestest2['carbs'].apply(lambda x: 1)
+
+    featurestest = pd.concat([featurestest1, featurestest2])
+    featurestest = featurestest.sort_values(by='ts', ignore_index=True)
+
+    featurestesty = featurestest['carbs']
+    featurestesty = ndimage.maximum_filter(featurestesty, size=maxfiltersize)
+    featurestesty = pd.DataFrame(featurestesty)
+
+    featurestestx = featurestest['value']
+    featurestestx = pd.DataFrame(featurestestx)
+    featurestestx = featurestestx.fillna(method='ffill')
+    featurestestx['value'] = featurestestx['value'].astype('float64')
+
 
     #VALIDATION
 
     feature_validation1 = dataValidation['glucose_level']
-    feature_validation1['carbs'] = ""
+    feature_validation1.loc[:, 'carbs'] = ""
     feature_validation1['carbs'] = feature_validation1['carbs'].apply(lambda x: 0)
 
     feature_validation2 = dataValidation['meal']
@@ -139,17 +179,21 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
     features_validation_x['value'] = features_validation_x['value'].astype('float64')
 
 
+
     featuresvalidation  = pd.concat([features_validation_y, features_validation_x], axis=1)
     featurestrain=pd.concat([features_train_y,features_train_x],axis=1)
+    featurestest=pd.concat([featurestesty,featurestestx],axis=1)
 
     featurestrain.columns = featurestrain.columns.astype(str)
     featuresvalidation.columns = featuresvalidation.columns.astype(str)
+    featurestest.columns = featurestest.columns.astype(str)
 
 
 
     scaler = MinMaxScaler(feature_range=(0, 1))
     featurestrain=scaler.fit_transform(featurestrain)
     featuresvalidation=scaler.transform(featuresvalidation)
+    featurestest=scaler.transform(featurestest)
     if(oversampling==True):
         trainY=featurestrain[:,0]
         trainX = featurestrain[:, 1]
@@ -160,29 +204,34 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
         featurestrain = np.column_stack((trainY, trainX))
     trainX,trainY = create_dataset(featurestrain, lookback)
     validX,validY = create_dataset(featuresvalidation, lookback)
+    testX,testY=create_dataset(featurestest,lookback)
 
     trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
     validX = np.reshape(validX, (validX.shape[0], validX.shape[1], 1))
+    testX = np.reshape(testX, (testX.shape[0], testX.shape[1], 1))
 
     print("trainX:",trainX.shape)
     print("trainY:",trainY.shape)
     print("validX:",validX.shape)
     print("validY:", validY.shape)
+    print("validX:", testX.shape)
+    print("validY:", testY.shape)
 
     if(modelnumber==1):
-        modelCNN(trainX, validX, validY, trainY, epochnumber,learning_rate)
+        modelCNN(trainX, trainY, validX, validY,testX,testY, epochnumber,learning_rate)
     if(modelnumber==2):
-        model_meal_RNN_1DCONV(trainX, validX, validY, trainY, epochnumber,learning_rate)
-    else:
-        return print("Wrong model number")
+        model_meal_RNN_1DCONV(trainX, trainY, validX, validY,testX,testY, epochnumber,learning_rate)
 
 
-def modelCNN(train_x, validX, validY, train_y,epochnumber,learning_rate=0.001):
+def modelCNN(train_x, train_y, validX, validY,testX,testY, epochnumber,learning_rate=0.001):
 
     path_checkpoint = "modelMealCNN_checkpoint.h5"
     opt = keras.optimizers.Adam(learning_rate=learning_rate)
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=15)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=30)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+
+    class_weights = {0: 1.,
+                     1: 2.}
 
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
@@ -207,8 +256,18 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber,learning_rate=0.001):
                                                                                              average='macro',
                                                                                              threshold=0.5)
                                                                          ])
-    history=model.fit(train_x, train_y, epochs=epochnumber, callbacks=[ es_callback,reduce_lr,modelckpt_callback], verbose=1, shuffle=False,
+    history=model.fit(train_x, train_y, epochs=epochnumber,class_weight=class_weights, callbacks=[ es_callback,reduce_lr,modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
+
+    test_loss, test_accuracy, test_precision, test_recall, test_auc, test_f1 = model.evaluate(testX, testY)
+
+    print("Test Loss:", test_loss)
+    print("Test Accuracy:", test_accuracy)
+    print("Test Precision:", test_precision)
+    print("Test Recall:", test_recall)
+    print("Test AUC:", test_auc)
+    print("Test F1 Score:", test_f1)
+
     prediction = model.predict(validX)
     # Prediction and actual data plot
     plt.figure(figsize=(20, 6))
@@ -225,13 +284,13 @@ def modelCNN(train_x, validX, validY, train_y,epochnumber,learning_rate=0.001):
    #plt.legend()
    #plt.show()
 
-def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_rate=0.001):
+def model_meal_RNN_1DCONV(train_x, train_y, validX, validY,testX,testY, epochnumber,learning_rate=0.001):
     model = keras.Sequential()
 
-    opt = keras.optimizers.Adam(learning_rate=lrnng_rate)
+    opt = keras.optimizers.Adam(learning_rate=learning_rate)
     path_checkpoint = "modelMeal_checkpoint.h5"
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=15)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=50)
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
         filepath=path_checkpoint,
@@ -270,6 +329,15 @@ def model_meal_RNN_1DCONV(train_x, validX, validY, train_y, epochnumber,lrnng_ra
     history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[es_callback,reduce_lr,modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
 
+    test_loss, test_accuracy, test_precision, test_recall, test_auc, test_f1 = model.evaluate(testX, testY)
+
+    print("Test Loss:", test_loss)
+    print("Test Accuracy:", test_accuracy)
+    print("Test Precision:", test_precision)
+    print("Test Recall:", test_recall)
+    print("Test AUC:", test_auc)
+    print("Test F1 Score:", test_f1)
+
     prediction = model.predict(validX)
     #Prediction and actual data plot
     plt.figure(figsize=(20, 6))
@@ -292,7 +360,7 @@ if __name__ == "__main__":
     #train, test= loadeveryxml()
     train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
     test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
-    model2(dataTrain=train,dataValidation=test,lookback=50,maxfiltersize=10,epochnumber=200,modelnumber=2,learning_rate=0.001,oversampling=False)
+    model2(dataTrain=train,dataTest=test,lookback=30,maxfiltersize=10,epochnumber=200,modelnumber=2,learning_rate=0.001,oversampling=False)
 
 
 
