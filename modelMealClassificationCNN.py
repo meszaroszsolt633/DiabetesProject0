@@ -290,7 +290,7 @@ def model_meal_RNN_1DCONV(train_x, train_y, validX, validY,testX,testY, epochnum
     opt = keras.optimizers.Adam(learning_rate=learning_rate)
     path_checkpoint = "modelMeal_checkpoint.h5"
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=50)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=40)
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
         filepath=path_checkpoint,
