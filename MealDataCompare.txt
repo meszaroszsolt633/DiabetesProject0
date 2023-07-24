@@ -1,84 +1,8 @@
 Train 559
-Glükóz adatok: 12092
+Glucose adatok: 12092
 Meal adatok: 12090
 
-563
-Glükóz adatok: 13244
-Meal adatok: 13243
-
-570
-Glükóz adatok: 11805
-Meal adatok: 11803
-
-575
-Glükóz adatok: 13242
-Meal adatok: 13240
-
-588
-Glükóz adatok: 13245
-Meal adatok: 13244
-
-591
-Glükóz adatok: 12956
-Meal adatok: 12954
-
-540
-Glükóz adatok: 13245
-Meal adatok: 13243
-
-544
-Glükóz adatok: 12670
-Meal adatok: 12669
-
-552
-Glükóz adatok: 11227
-Meal adatok: 11226
-
-596
-Glükóz adatok: 13821
-Meal adatok: 13820
-
 Test 559
-Glükóz adatok: 2879
+Glucose adatok: 2879
 Meal adatok: 2877
-
-563
-Glükóz adatok: 2879
-Meal adatok: 2877
-
-570
-Glükóz adatok: 2879
-Meal adatok: 2877
-
-575
-Glükóz adatok: 2879
-Meal adatok: 2877
-
-588
-Glükóz adatok: 2880
-Meal adatok: 2878
-
-591
-Glükóz adatok: 2878
-Meal adatok: 2876
-
-540
-Glükóz adatok: 3166
-Meal adatok: 3164
-
-544
-Glükóz adatok: 3166
-Meal adatok: 3164
-
-552
-Glükóz adatok: 4029
-Meal adatok: 4027
-
-584
-Glükóz adatok: 3167
-Meal adatok: 3165
-
-596
-Glükóz adatok: 3165
-Meal adatok: 3163
 

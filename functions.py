@@ -9,7 +9,6 @@ from defines import *
 import pandas as pd
 import numpy as np
 import xml.dom.minidom as minidom
-from modelMealClassificationRNN import *
 
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
     counts = {'good': 0,
@@ -207,7 +206,7 @@ def drop_days_with_missing_eat_data(data: dict[str, pd.DataFrame], missing_eat_t
             cleaned_data[keys] = cleaned_data[keys].iloc[0:0]
         return cleaned_data
 
-
+#region creating/inserting dataframes
 def insert_row(idx, df, df_insert):
     if idx == -1:
         df = pd.concat([df, df_insert])
@@ -234,7 +233,7 @@ def create_increasing_rows_fixed(amount, datetime, avg):
     return rows
 
 
-#region creating/inserting dataframes
+
 def create_decreasing_rows_fixed(amount, datetime, value):
     rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
     prev_datetime = datetime
@@ -766,6 +765,7 @@ def load_everything():
     train_dict = {}
     file = open('MealDataCompare.txt','w')
     file.write('Train ')
+    idx = 0
     for filepaths in ALL_TRAIN_FILE_PATHS:
         print(filepaths[-19:-4])
         to_write= filepaths[-19:-16] + '\n'
@@ -787,6 +787,8 @@ def load_everything():
 
         to_write = 'Glucose adatok: ' + str(len(temp_data['glucose_level'])) + '\nMeal adatok: '+ str(len(temp_data['meal'])) + '\n\n'
         file.write(to_write)
+        kulonbseg = len(temp_data['glucose_level']) - len(temp_data['meal'])
+        temp_data['glucose_level'] = temp_data['glucose_level'][0:-kulonbseg]
         #majd itt egybefűzzük az egészet egy nagy dataframe-be
         for key, value in temp_data.items():
             if key in train_dict:
@@ -795,9 +797,13 @@ def load_everything():
             else:
                 train_dict[key] = value
                 train_dict[key] = train_dict[key].reset_index(drop=True)
+        idx += 1
+        if idx == 1:
+            break
 
     test_dict = {}
     file.write('Test ')
+    idx = 0
     for filepaths in ALL_TEST_FILE_PATHS:
         #ugyanaz történik csak a test fájlokkal
         print(filepaths[-18:-4])
@@ -815,6 +821,8 @@ def load_everything():
         print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
         to_write = 'Glucose adatok: ' + str(len(temp_data['glucose_level'])) + '\nMeal adatok: '+ str(len(temp_data['meal'])) + '\n\n'
         file.write(to_write)
+        kulonbseg = len(temp_data['glucose_level']) - len(temp_data['meal'])
+        temp_data['glucose_level'] = temp_data['glucose_level'][0:-kulonbseg]
         for key, value in temp_data.items():
             if key in test_dict:
                 test_dict[key] = pd.concat([test_dict[key], value])
@@ -822,7 +830,9 @@ def load_everything():
             else:
                 test_dict[key] = value
                 test_dict[key] = test_dict[key].reset_index(drop=True)
-
+        idx += 1
+        if idx == 1:
+            break
     file.close()
     return train_dict, test_dict
 

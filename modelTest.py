@@ -3,7 +3,8 @@ from defines import *
 import numpy as np
 from statistics import stdev
 from scipy import signal
-from model import data_preparation
+
+from modelMealClassificationCNN import data_preparation
 from modelMealClassificationRNN import count_ones_and_zeros
 from xml_read import load
 import matplotlib.pyplot as plt
@@ -53,9 +54,9 @@ def visualize_loss(history, title):
 def create_dataset(dataset, look_back=1):
     dataX, dataY = [], []
     for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back), 0]
+        a = dataset[i:(i + look_back), 1]
         dataX.append(a)
-        dataY.append(dataset[(i + look_back), 0])
+        dataY.append(dataset[i, 0])
     return np.array(dataX), np.array(dataY)
 
 def show_plot(plot_data, delta, title):
@@ -171,7 +172,7 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
 def modelMeal(train_x, validX, validY, train_y, look_back):
     model = keras.Sequential()
 
-    opt = keras.optimizers.Adam(learning_rate=0.01)
+    opt = keras.optimizers.Adam(learning_rate=0.001)
     path_checkpoint = "modelMeal_checkpoint.h5"
     es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=5)
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
@@ -182,11 +183,9 @@ def modelMeal(train_x, validX, validY, train_y, look_back):
         save_best_only=True,
     )
 
-    model.add(LSTM(256, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(LSTM(128, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(Dropout(0.3))
-    model.add(LSTM(256, return_sequences=True))
-    model.add(Dropout(0.3))
-    model.add(LSTM(256, return_sequences=False))
+    model.add(LSTM(64, return_sequences=False))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation="sigmoid"))
 
@@ -194,7 +193,7 @@ def modelMeal(train_x, validX, validY, train_y, look_back):
     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=['accuracy',
                        metrics.Precision(name='precision'),
                        metrics.Recall(name='recall')])
-    model.fit(train_x, train_y, epochs=50, callbacks=[es_callback, modelckpt_callback], verbose=1, shuffle=False,
+    model.fit(train_x, train_y, epochs=100, callbacks=[ modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
 
     prediction = model.predict(validX)
@@ -206,9 +205,10 @@ def modelMeal(train_x, validX, validY, train_y, look_back):
 
 
 if __name__ == "__main__":
-    dataTrain, patient_data = load(TRAIN2_540_PATH)
+    dataTrain, patient_data = load(TRAIN2_544_PATH)
     dataValidation, patient_data = load(TEST2_544_PATH)
-    #clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
+    dataTrain = data_preparation(dataTrain, pd.Timedelta(5, "m"), 30, 3)
+    dataValidation = data_preparation(dataValidation, pd.Timedelta(5, "m"), 30, 3)
     model2(dataTrain,dataValidation)
 
 
