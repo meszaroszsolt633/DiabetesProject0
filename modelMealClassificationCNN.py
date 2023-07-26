@@ -214,8 +214,8 @@ def model2(dataTrain, dataTest, lookback=50, maxfiltersize=10, epochnumber=50,mo
     print("trainY:",trainY.shape)
     print("validX:",validX.shape)
     print("validY:", validY.shape)
-    print("validX:", testX.shape)
-    print("validY:", testY.shape)
+    print("testX:", testX.shape)
+    print("testY:", testY.shape)
 
     if(modelnumber==1):
         modelCNN(trainX, trainY, validX, validY,testX,testY, epochnumber,learning_rate)
@@ -353,6 +353,79 @@ def model_meal_RNN_1DCONV(train_x, train_y, validX, validY,testX,testY, epochnum
    #plt.ylabel('Loss')
    #plt.legend()
    #plt.show()
+
+def multiOutputModel(train_x, train_y, validX, validY,testX,testY, epochnumber,learning_rate=0.001):
+
+
+    opt = keras.optimizers.Adam(learning_rate=learning_rate)
+    path_checkpoint = "modelMeal_checkpoint.h5"
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=40)
+    modelckpt_callback = keras.callbacks.ModelCheckpoint(
+        monitor="val_loss",
+        filepath=path_checkpoint,
+        verbose=1,
+        save_weights_only=True,
+        save_best_only=True,
+    )
+    input = keras.Input(shape=(train_x.shape[1],train_x.shape[2]))
+    conv1d1 = keras.layers.Conv1D(filters=256, kernel_size=3, activation='relu')
+    maxpool1 = keras.layers.MaxPooling1D(pool_size=2)
+    dropout1 = keras.layers.Dropout(0.3)
+    conv1d2 = keras.layers.Conv1D(filters=128, kernel_size=3, activation='relu')
+    maxpool2 = keras.layers.MaxPooling1D(pool_size=2)
+    dropout2 = keras.layers.Dropout(0.3)
+    lstm1 = keras.layers.LSTM(128, return_sequences=True)
+    dropout3 = keras.layers.Dropout(0.3)
+    lstm2 = keras.layers.LSTM(64, return_sequences=False)
+    dropout4 = keras.layers.Dropout(0.3)
+
+    classLayer = keras.layers.Dense(1, activation='sigmoid')
+    amountLayer = keras.layers.Dense(200, activation='softmax')
+
+    x = conv1d1(input)
+    x = maxpool1(x)
+    x = dropout1(x)
+    x = conv1d2(x)
+    x = maxpool2(x)
+    x = dropout2(x)
+    x = lstm1(x)
+    x = dropout3(x)
+    x = lstm2(x)
+    x = dropout4(x)
+    output1 = classLayer(x)
+    output2 = amountLayer(x)
+
+    model = keras.Model(input = input, outputs = [output1, output2], name='MultiOutputLayer')
+
+    model.compile(loss='binary_crossentropy', optimizer=opt, metrics=["accuracy",
+                                                                         tf.keras.metrics.Precision(name="precision"),
+                                                                         tf.keras.metrics.Recall(name="recall"),
+                                                                         tf.keras.metrics.AUC(name="auc"),
+                                                                         tfa.metrics.F1Score(num_classes=1,
+                                                                                             average='macro',
+                                                                                             threshold=0.5)])
+
+    history = model.fit(train_x, train_y, epochs=epochnumber, callbacks=[es_callback, reduce_lr, modelckpt_callback],
+                        verbose=1, shuffle=False,
+                        validation_data=(validX, validY))
+
+    test_loss, test_accuracy, test_precision, test_recall, test_auc, test_f1 = model.evaluate(testX, testY)
+
+    print("Test Loss:", test_loss)
+    print("Test Accuracy:", test_accuracy)
+    print("Test Precision:", test_precision)
+    print("Test Recall:", test_recall)
+    print("Test AUC:", test_auc)
+    print("Test F1 Score:", test_f1)
+
+    prediction = model.predict(validX)
+    # Prediction and actual data plot
+    plt.figure(figsize=(20, 6))
+    plt.plot(prediction[0:1440 * 3], label='prediction')
+    plt.plot(validY[0:1440 * 3], label='test_data')
+    plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     train, patient_data = load(TRAIN2_544_PATH)

@@ -172,7 +172,7 @@ def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber
 def modelMeal(train_x, validX, validY, train_y, look_back):
     model = keras.Sequential()
 
-    opt = keras.optimizers.Adam(learning_rate=0.001)
+    opt = keras.optimizers.Adam(learning_rate=0.01)
     path_checkpoint = "modelMeal_checkpoint.h5"
     es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=5)
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
