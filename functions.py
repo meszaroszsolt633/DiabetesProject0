@@ -798,8 +798,8 @@ def load_everything():
                 train_dict[key] = value
                 train_dict[key] = train_dict[key].reset_index(drop=True)
         idx += 1
-        if idx == 1:
-            break
+       #if idx == 1:
+       #    break
 
     test_dict = {}
     file.write('Test ')
@@ -831,8 +831,8 @@ def load_everything():
                 test_dict[key] = value
                 test_dict[key] = test_dict[key].reset_index(drop=True)
         idx += 1
-        if idx == 1:
-            break
+        #if idx == 1:
+        #    break
     file.close()
     return train_dict, test_dict
 
