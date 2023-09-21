@@ -263,6 +263,14 @@ def model_meal_RNN_multioutput(train_x, train_y, validX, validY, epochnumber, lr
                                                                 verbose=1, shuffle=False,
                                                                 validation_data=([validX, validX], [validY, validY]))
 
+    prediction = model.predict(validX)
+    # Prediction and actual data plot
+    plt.figure(figsize=(20, 6))
+    plt.plot(prediction[0:1440 * 3], label='prediction')
+    plt.plot(validY[0:1440 * 3], label='test_data')
+    plt.legend()
+    plt.show()
+
 if __name__ == "__main__":
     #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     train, test = loadeveryxml()
