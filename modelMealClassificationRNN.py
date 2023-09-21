@@ -108,8 +108,12 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     features_train = features_train.sort_values(by='ts', ignore_index=True)
 
     features_train_y = [features_train['eaten'],features_train['carbs']]
-    features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
-    features_train_y = pd.DataFrame(features_train_y)
+    # Apply maximum filter separately to each column
+    eaten_max_filtered = ndimage.maximum_filter(features_train_y[:, 0], size=maxfiltersize)
+    carbs_max_filtered = ndimage.maximum_filter(features_train_y[:, 1], size=maxfiltersize)
+
+    # Combine the filtered columns back into a single array
+    features_train_y = pd.DataFrame(np.column_stack((eaten_max_filtered, carbs_max_filtered)))
 
     features_train_x = features_train['value']
     features_train_x = pd.DataFrame(features_train_x)
@@ -131,8 +135,11 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     features_validation = features_validation.sort_values(by='ts', ignore_index=True)
 
     features_validation_y = [features_validation['eaten'],features_validation['carbs']]
-    features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
-    features_validation_y = pd.DataFrame(features_validation_y)
+    eaten_max_filtered = ndimage.maximum_filter(features_validation_y[:, 0], size=maxfiltersize)
+    carbs_max_filtered = ndimage.maximum_filter(features_validation_y[:, 1], size=maxfiltersize)
+
+    # Combine the filtered columns back into a single array
+    features_validation_y = pd.DataFrame(np.column_stack((eaten_max_filtered, carbs_max_filtered)))
 
     features_validation_x = features_validation['value']
     features_validation_x = pd.DataFrame(features_validation_x)
