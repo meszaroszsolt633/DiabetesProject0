@@ -765,25 +765,26 @@ def load_everything():
     train_dict = {}
     file = open('MealDataCompare.txt','w')
     file.write('Train ')
+    print('Train')
     idx = 0
     for filepaths in ALL_TRAIN_FILE_PATHS:
-        print(filepaths[-19:-4])
+        #print(filepaths[-19:-4])
         to_write= filepaths[-19:-16] + '\n'
         file.write(to_write)
         #betöltjük egyesével az xml fájlokat
         temp_data, temp_patient_data = load(filepaths)
-        print('Glükóz adatok: ',len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+        #print('Glükóz adatok: ',len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
 
         #mindegyiknél feltöltjük 0-val a hiányzó részeket, hogy "létezzenek"
         temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+        #print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
 
         #kidobjuk azokat a meal adatokat, amelyeknél nem létezik egyező napú glükóz adat
         temp_data = drop_meal_days(temp_data)
 
         #feltöltjük a mealt is 0-ákkal, hogy létezzenek, a glükóz adatoknak megfelelően
         temp_data = fill_meal_with_zeros(temp_data)
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+        #print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
 
         to_write = 'Glucose adatok: ' + str(len(temp_data['glucose_level'])) + '\nMeal adatok: '+ str(len(temp_data['meal'])) + '\n\n'
         file.write(to_write)
@@ -803,22 +804,23 @@ def load_everything():
 
     test_dict = {}
     file.write('Test ')
+    print('Test')
     idx = 0
     for filepaths in ALL_TEST_FILE_PATHS:
         #ugyanaz történik csak a test fájlokkal
-        print(filepaths[-18:-4])
+        #print(filepaths[-18:-4])
         to_write = filepaths[-18:-15] + '\n'
         file.write(to_write)
         temp_data, temp_patient_data = load(filepaths)
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+        #print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
 
         temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+        #print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
 
         temp_data = drop_meal_days(temp_data)
 
         temp_data = fill_meal_with_zeros(temp_data)
-        print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
+        #print('Glükóz adatok: ', len(temp_data['glucose_level']), '\nMeal adatok: ', len(temp_data['meal']))
         to_write = 'Glucose adatok: ' + str(len(temp_data['glucose_level'])) + '\nMeal adatok: '+ str(len(temp_data['meal'])) + '\n\n'
         file.write(to_write)
         kulonbseg = len(temp_data['glucose_level']) - len(temp_data['meal'])

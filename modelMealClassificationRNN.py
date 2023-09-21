@@ -1,7 +1,7 @@
 import pandas as pd
 from defines import *
 from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
-    fill_glucose_level_data_continuous
+    fill_glucose_level_data_continuous, loadeveryxml
 import numpy as np
 from statistics import stdev
 from scipy import signal
@@ -97,16 +97,17 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
 
     feature_train1 = dataTrain['glucose_level']
     feature_train1['carbs'] = ""
+    feature_train1['eaten'] = feature_train1['carbs'].apply(lambda x: 0)
     feature_train1['carbs'] = feature_train1['carbs'].apply(lambda x: 0)
 
     feature_train2 = dataTrain['meal']
     feature_train2 = feature_train2.drop(['type'], axis=1)
-    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1)
+    feature_train2['eaten'] = feature_train2['carbs'].apply(lambda x: 1)
 
     features_train = pd.concat([feature_train1, feature_train2])
     features_train = features_train.sort_values(by='ts', ignore_index=True)
 
-    features_train_y = features_train['carbs']
+    features_train_y = [features_train['eaten'],features_train['carbs']]
     features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
     features_train_y = pd.DataFrame(features_train_y)
 
@@ -119,16 +120,17 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
 
     feature_validation1 = dataValidation['glucose_level']
     feature_validation1['carbs'] = ""
+    feature_validation1['eaten'] = feature_validation1['carbs'].apply(lambda x: 0)
     feature_validation1['carbs'] = feature_validation1['carbs'].apply(lambda x: 0)
 
     feature_validation2 = dataValidation['meal']
     feature_validation2 = feature_validation2.drop(['type'], axis=1)
-    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1)
+    feature_validation2['eaten'] = feature_validation2['carbs'].apply(lambda x: 1)
 
     features_validation = pd.concat([feature_validation1, feature_validation2])
     features_validation = features_validation.sort_values(by='ts', ignore_index=True)
 
-    features_validation_y = features_validation['carbs']
+    features_validation_y = [features_validation['eaten'],features_validation['carbs']]
     features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
     features_validation_y = pd.DataFrame(features_validation_y)
 
@@ -147,7 +149,7 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     featurestrain = scaler.fit_transform(featurestrain)
     featuresvalidation = scaler.transform(featuresvalidation)
     if (oversampling == True):
-        trainY = featurestrain[:, 0]
+        trainY = featurestrain[:, 0:2]
         trainX = featurestrain[:, 1]
         trainY = trainY.reshape(-1, 1)
         trainX = trainX.reshape(-1, 1)
@@ -165,7 +167,7 @@ def model_base_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epo
     print("validX:", validX.shape)
     print("validY:", validY.shape)
 
-    model_meal_RNN(trainX, trainY, validX, validY,  epochnumber, learning_rate)
+    model_meal_RNN_multioutput(trainX, trainY, validX, validY,  epochnumber, learning_rate)
 
 
 def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
@@ -212,11 +214,61 @@ def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
     plt.legend()
     plt.show()
 
+def model_meal_RNN_multioutput(train_x, train_y, validX, validY, epochnumber, lrnng_rate):
+    opt = keras.optimizers.Adam(learning_rate=lrnng_rate)
+    path_checkpoint = "modelMealRNN_checkpoint.h5"
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=15)
+    modelckpt_callback = keras.callbacks.ModelCheckpoint(
+        monitor="val_loss",
+        filepath=path_checkpoint,
+        verbose=1,
+        save_weights_only=True,
+        save_best_only=True,
+    )
+
+    input1 = Input(shape=(train_x.shape[1], train_x.shape[2]))
+    input2 = Input(shape=(train_x.shape[1], train_x.shape[2]))
+
+    # Shared LSTM layers
+    lstm1 = LSTM(256, return_sequences=True)(input1)
+    dropout1 = Dropout(0.3)(lstm1)
+    lstm2 = LSTM(128, return_sequences=True)(dropout1)
+    dropout2 = Dropout(0.3)(lstm2)
+    lstm3 = LSTM(64, return_sequences=False)(dropout2)
+    dropout3 = Dropout(0.3)(lstm3)
+
+    # Output 1
+    output1 = Dense(1, activation="sigmoid")(dropout3)
+
+    # Output 2 (conditional output)
+    output2 = Dense(1, activation="sigmoid")(dropout3)
+    output2 = tf.keras.layers.Multiply()([output1, output2])
+
+    # Create the model
+    model = Model(inputs=[input1, input2], outputs=[output1, output2])
+    model.summary()
+
+    # Compile and train the model
+    model.compile(loss="binary_crossentropy", optimizer=opt, metrics=["accuracy",
+                                                                  tf.keras.metrics.Precision(name="precision"),
+                                                                  tf.keras.metrics.Recall(name="recall"),
+                                                                  tf.keras.metrics.AUC(name="auc"),
+                                                                  tfa.metrics.F1Score(num_classes=1,
+                                                                                      average='macro',
+                                                                                      threshold=0.5)
+                                                                  ])
+    history = model.fit([train_x, train_x], [train_y, train_y], epochs=epochnumber,
+                                                                callbacks=[es_callback, reduce_lr, modelckpt_callback],
+                                                                verbose=1, shuffle=False,
+                                                                validation_data=([validX, validX], [validY, validY]))
+
 if __name__ == "__main__":
     #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-    #train, test = load_everything()
-    train,patientdata=load(TRAIN2_540_PATH)
-    test,patientdata=load(TEST2_540_PATH)
+    train, test = loadeveryxml()
+
+    #train,patientdata=load(TRAIN2_540_PATH)
+    #test,patientdata=load(TEST2_540_PATH)
     train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
     test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
     model_base_RNN(dataTrain=train,dataValidation=test,lookback=50,maxfiltersize=10,epochnumber=200,modelnumber=2,learning_rate=0.001,oversampling=False)
