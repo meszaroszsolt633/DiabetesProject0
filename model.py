@@ -78,6 +78,15 @@ def create_dataset(dataset, look_back=1):
         dataY.append(dataset[i, 0])
     return np.array(dataX), np.array(dataY)
 
+def create_variable_sliding_window_dataset(dataset, backward_steps, forward_steps):
+    dataX, dataY = [], []
+    for i in range(backward_steps, len(dataset) - forward_steps):
+        a = dataset[i-backward_steps:(i +forward_steps), 1]
+        b = dataset[i, 0]
+        dataX.append(a)
+        dataY.append(b)
+    return np.array(dataX), np.array(dataY)
+
 
 
 
