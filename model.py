@@ -1,7 +1,8 @@
 import pandas as pd
+import tensorflow.python.keras.engine.keras_tensor
 
 from defines import *
-from functions import *
+from modelMealClassificationCNN import visualize_loss, data_preparation
 from xml_read import *
 from xml_write import *
 from tensorflow import keras
@@ -11,7 +12,7 @@ from keras.layers import Dense
 import matplotlib.pyplot as plt
 from keras.layers import Dropout
 from sklearn.preprocessing import MinMaxScaler
-
+import numpy as np
 
 
 
@@ -88,7 +89,42 @@ def create_variable_sliding_window_dataset(dataset, backward_steps, forward_step
     return np.array(dataX), np.array(dataY)
 
 
+def write_model_stats_out_xml(history, train, prediction):
+    #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
 
+    root = "<model>Model details:"
+
+    root += "<layers>"
+    layer = history.model.layers
+    for idx in range(len(history.model.layers)):
+        if layer[idx].name == "dropout":
+            root += "<layer>{} name:{} units:{} </layer>".format(idx+1, layer[idx].name, layer[idx].rate)
+        elif "input" in layer[idx].name:
+            root += "<layer>{} name:{} shape:{} </layer>".format(idx+1, layer[idx].name, layer[idx].input_shape)
+        elif "dense" in layer[idx].name:
+            root += "<layer>{} name:{} units:{} </layer>".format(idx + 1, layer[idx].name,
+                                                                               layer[idx].units,)
+        else:
+            root += "<layer> {} name:{} units:{}  return_sequences:{} <layer/>".format(idx+1,layer[idx].name, layer[idx].units, layer[idx].return_sequences)
+    root += "</layers>"
+    root += "<history>"
+    loss = history.history["loss"]
+    for idx in range(len(history.history["loss"])):
+        root += "<loss> epoch:{} value:{} </loss>".format(idx, loss)
+    root += "</history>"
+    root += "</model>"
+    root += "<data>"
+    for i in range (len(train)):
+        root += "<row> train/prediction: {}/{} </row>".format(train[i],prediction[i])
+
+    root += "</data>"
+
+    #tree.write("Patients.xml", encoding="utf-8", xml_declaration=True, method="xml",pretty_print=True)
+    dom = minidom.parseString(root)
+    pretty_xml_str = dom.toprettyxml()
+    filename="RNNModel"
+    with open(filename, "w") as f:
+        f.write(pretty_xml_str)
 
 
 
@@ -107,4 +143,6 @@ if __name__ == "__main__":
     validX = np.reshape(validX, (validX.shape[0], 1, validX.shape[1]))
     print(train.shape)
     history, model = model(trainX, validX, validY, trainY,  look_back)
-    print(history)
+    print(history.model.layers[0])
+    prediction = model.predict(validX)
+    write_model_stats_out_xml(history, validY, prediction)
