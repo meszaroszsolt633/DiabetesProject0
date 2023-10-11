@@ -2,7 +2,7 @@ import pandas as pd
 import tensorflow.python.keras.engine.keras_tensor
 
 from defines import *
-from modelMealClassificationCNN import visualize_loss, data_preparation
+#from modelMealClassificationCNN import visualize_loss, data_preparation
 from xml_read import *
 from xml_write import *
 from tensorflow import keras
@@ -55,7 +55,7 @@ def model(train_x, validX, validY, train_y, look_back):
     )
 
     history = glucose_model.fit(train_x,train_y,callbacks=[es_callback, modelckpt_callback], epochs=1000, batch_size=look_back, verbose=1, shuffle=False, validation_data=(validX, validY))
-    visualize_loss(history,"Training and Validation loss")
+    #visualize_loss(history,"Training and Validation loss")
     return history, glucose_model
 
 
@@ -91,8 +91,8 @@ def create_variable_sliding_window_dataset(dataset, backward_steps, forward_step
 
 def write_model_stats_out_xml(history, train, prediction):
     #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
-
-    root = "<model>Model details:"
+    root = "<root>"
+    root += "<model>Model details:"
 
     root += "<layers>"
     layer = history.model.layers
@@ -105,7 +105,7 @@ def write_model_stats_out_xml(history, train, prediction):
             root += "<layer>{} name:{} units:{} </layer>".format(idx + 1, layer[idx].name,
                                                                                layer[idx].units,)
         else:
-            root += "<layer> {} name:{} units:{}  return_sequences:{} <layer/>".format(idx+1,layer[idx].name, layer[idx].units, layer[idx].return_sequences)
+            root += "<layer>{} name:{} units:{}  return_sequences:{} </layer>".format(idx+1,layer[idx].name, layer[idx].units, layer[idx].return_sequences)
     root += "</layers>"
     root += "<history>"
     loss = history.history["loss"]
@@ -118,7 +118,7 @@ def write_model_stats_out_xml(history, train, prediction):
         root += "<row> train/prediction: {}/{} </row>".format(train[i],prediction[i])
 
     root += "</data>"
-
+    root += "</root>"
     #tree.write("Patients.xml", encoding="utf-8", xml_declaration=True, method="xml",pretty_print=True)
     dom = minidom.parseString(root)
     pretty_xml_str = dom.toprettyxml()
@@ -131,8 +131,8 @@ def write_model_stats_out_xml(history, train, prediction):
 # ctrl+alt+shift+L REFORMATS CODE
 
 if __name__ == "__main__":
-    data, patient_data = load(TRAIN2_540_PATH)
-    clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 2)
+    clean_data, patient_data = load(TRAIN2_540_PATH)
+    #clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 2)
     clean_data["glucose_level"]['ts'] = pd.to_numeric(pd.to_datetime(clean_data["glucose_level"]['ts']))
     train, valid = train_test_valid_split(clean_data["glucose_level"])
     print(train.shape)
