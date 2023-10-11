@@ -1,11 +1,10 @@
 import pandas as pd
 from defines import *
 from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
-    fill_glucose_level_data_continuous, loadeveryxml
+    fill_glucose_level_data_continuous, loadeveryxml, create_variable_sliding_window_dataset, data_preparation
 import numpy as np
 from statistics import stdev
 from scipy import signal
-from model import create_dataset, create_variable_sliding_window_dataset
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
@@ -18,94 +17,10 @@ from sklearn.preprocessing import MinMaxScaler
 from imblearn.over_sampling import SMOTE
 import tensorflow_addons as tfa
 
-def data_preparation(data: dict[str, pd.DataFrame], time_step: pd.Timedelta, missing_count_threshold,
-                     missing_eat_threshold) -> dict[str, pd.DataFrame]:
-    cleaned_data = drop_days_with_missing_glucose_data(data, missing_count_threshold)
-    print('Glucose drop done')
-    cleaned_data = drop_days_with_missing_eat_data(cleaned_data, missing_eat_threshold)
-    print('Meal drop done')
-    for key in cleaned_data.keys():
-        cleaned_data[key] = cleaned_data[key].reset_index(drop=True)
-    cleaned_data = fill_glucose_level_data_continuous(cleaned_data, time_step)
-    print('Glucose fill done')
-    return cleaned_data
-
-def normalize(data, train_split):
-    data_mean = data[:train_split].mean(axis=0)
-    data_std = data[:train_split].std(axis=0)
-    return (data - data_mean) / data_std
-
-def train_test_valid_split(glucose_data: pd.DataFrame):
-    cleaned_data = {}
-    for key in glucose_data.keys():
-        cleaned_data[key] = glucose_data[key].__deepcopy__()
-    cleaned_data = pd.DataFrame(cleaned_data)
-    cleaned_data.columns = cleaned_data.columns.astype(str)
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    cleaned_data = scaler.fit_transform(cleaned_data)
-    idx = int(0.8 * int(cleaned_data.shape[0]))
-    train_x = cleaned_data[:idx]
-    test_x = cleaned_data[idx:]
-    return train_x,  test_x
-
-def visualize_loss(history, title):
-    loss = history.history["loss"]
-    val_loss = history.history["val_loss"]
-    epochs = range(len(loss))
-    plt.figure()
-    plt.plot(epochs, loss, "b", label="Training loss")
-    plt.plot(epochs, val_loss, "r", label="Validation loss")
-    plt.title(title)
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.show()
 
 
 
 
-def show_plot(plot_data, delta, title):
-    labels = ["History", "True Future", "Model Prediction"]
-    marker = [".-", "rx", "go"]
-    time_steps = list(range(-(plot_data[0].shape[0]), 0))
-    if delta:
-        future = delta
-    else:
-        future = 0
-
-    plt.title(title)
-    for i, val in enumerate(plot_data):
-        if i:
-            plt.plot(future, plot_data[i], marker[i], markersize=10, label=labels[i])
-        else:
-            plt.plot(time_steps, plot_data[i].flatten(), marker[i], label=labels[i])
-    plt.legend()
-    plt.xlim([time_steps[0], (future + 5) * 2])
-    plt.xlabel("Time-Step")
-    plt.show()
-    return
-
-def traintestsplitter(dataTrain: pd.DataFrame):
-    dataTrain_70 = {}
-    dataTrain_30 = {}
-
-    # Define the split ratio (70% and 30%)
-    split_ratio = 0.7
-
-    # Loop through each key-value pair in the original dictionary
-    for key, dataframe in dataTrain.items():
-        # Calculate the number of rows to retain in the 70% data and 30% data
-        total_rows = len(dataframe)
-        rows_70 = int(total_rows * split_ratio)
-
-        # Split the data based on the row indices
-        data_70 = dataframe.iloc[:rows_70]
-        data_30 = dataframe.iloc[rows_70:]
-
-        # Store the split data into the new dictionaries
-        dataTrain_70[key] = data_70
-        dataTrain_30[key] = data_30
-    return dataTrain_70,dataTrain_30
 
 def model2(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindow, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
 

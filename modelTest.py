@@ -4,8 +4,7 @@ import numpy as np
 from statistics import stdev
 from scipy import signal
 
-from modelMealClassificationCNN import data_preparation
-from modelMealClassificationRNN import count_ones_and_zeros
+from functions import count_ones_and_zeros, create_dataset, data_preparation
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
@@ -17,68 +16,6 @@ from keras.layers import Input, LSTM, Dense, Dropout
 from sklearn.preprocessing import MinMaxScaler
 from imblearn.over_sampling import SMOTE
 
-
-
-def normalize(data, train_split):
-    data_mean = data[:train_split].mean(axis=0)
-    data_std = data[:train_split].std(axis=0)
-    return (data - data_mean) / data_std
-
-def train_test_valid_split(glucose_data: pd.DataFrame):
-    cleaned_data = {}
-    for key in glucose_data.keys():
-        cleaned_data[key] = glucose_data[key].__deepcopy__()
-    cleaned_data = pd.DataFrame(cleaned_data)
-    cleaned_data.columns = cleaned_data.columns.astype(str)
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    cleaned_data = scaler.fit_transform(cleaned_data)
-    idx = int(0.8 * int(cleaned_data.shape[0]))
-    train_x = cleaned_data[:idx]
-    test_x = cleaned_data[idx:]
-    return train_x,  test_x
-
-def visualize_loss(history, title):
-    loss = history.history["loss"]
-    val_loss = history.history["val_loss"]
-    epochs = range(len(loss))
-    plt.figure()
-    plt.plot(epochs, loss, "b", label="Training loss")
-    plt.plot(epochs, val_loss, "r", label="Validation loss")
-    plt.title(title)
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.show()
-
-
-def create_dataset(dataset, look_back=1):
-    dataX, dataY = [], []
-    for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back), 1]
-        dataX.append(a)
-        dataY.append(dataset[i, 0])
-    return np.array(dataX), np.array(dataY)
-
-def show_plot(plot_data, delta, title):
-    labels = ["History", "True Future", "Model Prediction"]
-    marker = [".-", "rx", "go"]
-    time_steps = list(range(-(plot_data[0].shape[0]), 0))
-    if delta:
-        future = delta
-    else:
-        future = 0
-
-    plt.title(title)
-    for i, val in enumerate(plot_data):
-        if i:
-            plt.plot(future, plot_data[i], marker[i], markersize=10, label=labels[i])
-        else:
-            plt.plot(time_steps, plot_data[i].flatten(), marker[i], label=labels[i])
-    plt.legend()
-    plt.xlim([time_steps[0], (future + 5) * 2])
-    plt.xlabel("Time-Step")
-    plt.show()
-    return
 
 
 def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50):

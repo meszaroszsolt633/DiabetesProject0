@@ -59,73 +59,6 @@ def model(train_x, validX, validY, train_y, look_back):
     return history, glucose_model
 
 
-def train_test_valid_split(glucose_data: pd.DataFrame):
-    cleaned_data = {}
-    for key in glucose_data.keys():
-        cleaned_data[key] = glucose_data[key].__deepcopy__()
-    cleaned_data = pd.DataFrame(cleaned_data)
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    cleaned_data = scaler.fit_transform(cleaned_data)
-    idx = int(0.8 * int(cleaned_data.shape[0]))
-    train_x = cleaned_data[:idx]
-    test_x = cleaned_data[idx:]
-    return train_x,  test_x
-
-def create_dataset(dataset, look_back=1):
-    dataX, dataY = [], []
-    for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back), 1]
-        dataX.append(a)
-        dataY.append(dataset[i, 0])
-    return np.array(dataX), np.array(dataY)
-
-def create_variable_sliding_window_dataset(dataset, backward_steps, forward_steps):
-    dataX, dataY = [], []
-    for i in range(backward_steps, len(dataset) - forward_steps):
-        a = dataset[i-backward_steps:(i +forward_steps), 1]
-        b = dataset[i, 0]
-        dataX.append(a)
-        dataY.append(b)
-    return np.array(dataX), np.array(dataY)
-
-
-def write_model_stats_out_xml(history, train, prediction):
-    #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
-    root = "<root>"
-    root += "<model>Model details:"
-
-    root += "<layers>"
-    layer = history.model.layers
-    for idx in range(len(history.model.layers)):
-        if layer[idx].name == "dropout":
-            root += "<layer>{} name:{} units:{} </layer>".format(idx+1, layer[idx].name, layer[idx].rate)
-        elif "input" in layer[idx].name:
-            root += "<layer>{} name:{} shape:{} </layer>".format(idx+1, layer[idx].name, layer[idx].input_shape)
-        elif "dense" in layer[idx].name:
-            root += "<layer>{} name:{} units:{} </layer>".format(idx + 1, layer[idx].name,
-                                                                               layer[idx].units,)
-        else:
-            root += "<layer>{} name:{} units:{}  return_sequences:{} </layer>".format(idx+1,layer[idx].name, layer[idx].units, layer[idx].return_sequences)
-    root += "</layers>"
-    root += "<history>"
-    loss = history.history["loss"]
-    for idx in range(len(history.history["loss"])):
-        root += "<loss> epoch:{} value:{} </loss>".format(idx, loss)
-    root += "</history>"
-    root += "</model>"
-    root += "<data>"
-    for i in range (len(train)):
-        root += "<row> train/prediction: {}/{} </row>".format(train[i],prediction[i])
-
-    root += "</data>"
-    root += "</root>"
-    #tree.write("Patients.xml", encoding="utf-8", xml_declaration=True, method="xml",pretty_print=True)
-    dom = minidom.parseString(root)
-    pretty_xml_str = dom.toprettyxml()
-    filename="RNNModel"
-    with open(filename, "w") as f:
-        f.write(pretty_xml_str)
-
 
 
 # ctrl+alt+shift+L REFORMATS CODE
@@ -145,4 +78,4 @@ if __name__ == "__main__":
     history, model = model(trainX, validX, validY, trainY,  look_back)
     print(history.model.layers[0])
     prediction = model.predict(validX)
-    write_model_stats_out_xml(history, validY, prediction)
+    write_model_stats_out_xml(history, validY, prediction, "model.py")
