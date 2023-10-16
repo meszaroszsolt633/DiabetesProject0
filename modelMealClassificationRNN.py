@@ -1,7 +1,8 @@
 import pandas as pd
 from defines import *
 from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
-    fill_glucose_level_data_continuous, loadeveryxml, create_dataset, create_dataset_multi
+    fill_glucose_level_data_continuous, loadeveryxml, create_dataset, create_dataset_multi, \
+    create_variable_sliding_window_dataset, loadeverycleanedxml
 import numpy as np
 from statistics import stdev
 from scipy import signal
@@ -25,7 +26,7 @@ import tensorflow_addons as tfa
 
 
 #region MealDetectionModel
-def model_mealdetection_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50, modelnumber=1, learning_rate=0.001, oversampling=False):
+def model_mealdetection_RNN(dataTrain, dataValidation,  backward_slidingwindow, forward_slidingwindow, maxfiltersize=10, epochnumber=50, learning_rate=0.001, oversampling=False):
     # TRAIN
     feature_train1 = dataTrain['glucose_level']
     feature_train1.loc[:, 'carbs'] = ""
@@ -47,9 +48,7 @@ def model_mealdetection_RNN(dataTrain, dataValidation, lookback=50, maxfiltersiz
     features_train_x = features_train_x.fillna(method='ffill')
     features_train_x['value'] = features_train_x['value'].astype('float64')
 
-
-
-    #VALIDATION
+    # VALIDATION
 
     feature_validation1 = dataValidation['glucose_level']
     feature_validation1.loc[:, 'carbs'] = ""
@@ -71,38 +70,35 @@ def model_mealdetection_RNN(dataTrain, dataValidation, lookback=50, maxfiltersiz
     features_validation_x = features_validation_x.fillna(method='ffill')
     features_validation_x['value'] = features_validation_x['value'].astype('float64')
 
-
-
     featuresvalidation = pd.concat([features_validation_y, features_validation_x], axis=1)
-    featurestrain = pd.concat([features_train_y,features_train_x],axis=1)
+    featurestrain = pd.concat([features_train_y, features_train_x], axis=1)
 
     featurestrain.columns = featurestrain.columns.astype(str)
     featuresvalidation.columns = featuresvalidation.columns.astype(str)
 
-
-
     scaler = MinMaxScaler(feature_range=(0, 1))
-    featurestrain=scaler.fit_transform(featurestrain)
-    featuresvalidation=scaler.transform(featuresvalidation)
-    if(oversampling==True):
-        trainY=featurestrain[:,0]
+    featurestrain = scaler.fit_transform(featurestrain)
+    featuresvalidation = scaler.transform(featuresvalidation)
+    if (oversampling == True):
+        trainY = featurestrain[:, 0]
         trainX = featurestrain[:, 1]
         trainY = trainY.reshape(-1, 1)
         trainX = trainX.reshape(-1, 1)
         smote = SMOTE(random_state=42)
         trainX, trainY = smote.fit_resample(trainX, trainY)
         featurestrain = np.column_stack((trainY, trainX))
-    trainX,trainY = create_dataset(featurestrain, lookback)
-    validX,validY = create_dataset(featuresvalidation, lookback)
+    trainX, trainY = create_variable_sliding_window_dataset(featurestrain, backward_slidingwindow,
+                                                            forward_slidingwindow)
+    validX, validY = create_variable_sliding_window_dataset(featuresvalidation, backward_slidingwindow,
+                                                            forward_slidingwindow)
 
     trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
     validX = np.reshape(validX, (validX.shape[0], validX.shape[1], 1))
 
-    print("trainX:",trainX.shape)
-    print("trainY:",trainY.shape)
-    print("validX:",validX.shape)
+    print("trainX:", trainX.shape)
+    print("trainY:", trainY.shape)
+    print("validX:", validX.shape)
     print("validY:", validY.shape)
-
     model_meal_RNN(trainX, trainY, validX, validY, epochnumber, learning_rate)
 
 
@@ -120,11 +116,11 @@ def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
         save_best_only=True,
     )
 
-    model.add(LSTM(256, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(LSTM(256, return_sequences=True, activation="relu", input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=True))
+    model.add(LSTM(128, return_sequences=True, activation="relu"))
     model.add(Dropout(0.3))
-    model.add(LSTM(64, return_sequences=False))
+    model.add(LSTM(64, return_sequences=False, activation="relu"))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation="sigmoid"))
 
@@ -153,7 +149,7 @@ def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
 
 #region MultiOutputModel
 
-def model_multi_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50, modelnumber=1, learning_rate=0.001, oversampling=False):
+def model_multi_RNN(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50,  learning_rate=0.001, oversampling=False):
     # TRAIN
 
     feature_train1 = dataTrain['glucose_level']
@@ -294,11 +290,16 @@ def model_meal_RNN_multioutput(train_x, train_y, validX, validY, epochnumber, lr
 #endregion
 
 if __name__ == "__main__":
-    #print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-    train, test = loadeveryxml()
 
-    #train,patientdata=load(TRAIN2_540_PATH)
-    #test,patientdata=load(TEST2_540_PATH)
-    train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
-    test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
-    model_mealdetection_RNN(dataTrain=train,dataValidation=test,lookback=50,maxfiltersize=10,epochnumber=200,modelnumber=2,learning_rate=0.001,oversampling=False)
+    with tf.device('/cpu:0'):
+        print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+        #train_1, test_1 = loadeverycleanedxml()
+        train, test = loadeverycleanedxml()
+
+        #train, patient_data = load(TRAIN2_540_PATH)
+        #test, patient_data = load(TEST2_540_PATH)
+
+        #train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
+        #test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
+
+        model_mealdetection_RNN(dataTrain=train,dataValidation=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=10,epochnumber=200,learning_rate=0.001,oversampling=False)

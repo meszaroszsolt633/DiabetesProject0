@@ -12,6 +12,9 @@ import pandas as pd
 import numpy as np
 import xml.dom.minidom as minidom
 
+from xml_write import filepath_to_string
+
+
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
     counts = {'good': 0,
               'missing': 0,
@@ -52,6 +55,24 @@ def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> d
 
     return counts
 
+def loadeverycleanedxml():
+    train_dicts = [load(f) for f in CLEANEDALL_TRAIN_FILE_PATHS]
+    test_dicts = [load(f) for f in CLEANEDALL_TEST_FILE_PATHS]
+
+    merged_train_data = {key: pd.DataFrame() for key in train_dicts[0][0].keys()}
+    merged_test_data = {key: pd.DataFrame() for key in test_dicts[0][0].keys()}
+
+    for train_dict in train_dicts:
+        for key in merged_train_data.keys():
+            if key in train_dict[0]:
+                merged_train_data[key] = pd.concat([merged_train_data[key], train_dict[0][key]], ignore_index=True)
+
+    for test_dict in test_dicts:
+        for key in merged_test_data.keys():
+            if key in test_dict[0]:
+                merged_test_data[key] = pd.concat([merged_test_data[key], test_dict[0][key]], ignore_index=True)
+
+    return merged_train_data,merged_test_data
 
 def loadeveryxml():
     train_dicts = [load(f) for f in ALL_TRAIN_FILE_PATHS]
@@ -264,11 +285,11 @@ def create_increasing_rows_continuous(amount, datetime,value_before_gap,value_af
 
 
 def create_decreasing_rows_continuous(amount, datetime,avg,valueaftergap):
-    valueaftergap=int(valueaftergap)
+    valueaftergap = int(valueaftergap)
     rows = pd.DataFrame(index=np.arange(0, amount), columns=('ts', 'value'))
     prev_datetime = datetime
     segment=(valueaftergap-avg)/amount
-    value=avg
+    value=int(avg)
 
     for i in range(0, amount):
         dt = pd.to_datetime(prev_datetime, format='%d-%m-%Y %H:%M:%S', errors='coerce')
@@ -304,7 +325,7 @@ def fill_start_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time
     if first_amount > pd.Timedelta(10, 'm'):
         # megnézzük mennyi elem hiányzik
         first_amount_missing = math.floor(first_amount.total_seconds() / time_step.total_seconds()) - 1
-        df_to_insert = create_decreasing_rows_continuous(first_amount_missing, hour_zero, avgs[0],cleaned_data['glucose_level']['value'][0])
+        df_to_insert = create_decreasing_rows_continuous(first_amount_missing, hour_zero, int(avgs[0]),cleaned_data['glucose_level']['value'][0])
         cleaned_data['glucose_level'] = insert_row(0, cleaned_data['glucose_level'], df_to_insert)
 
     return cleaned_data
@@ -314,7 +335,6 @@ def fill_start_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time
 
 
 def fill_glucose_level_data_continuous(data: dict[str, pd.DataFrame], time_step: pd.Timedelta):
-    avgs = avg_calculator(data)
     cleaned_data = {}
     for key in data.keys():
         cleaned_data[key] = data[key].__deepcopy__()
@@ -446,6 +466,14 @@ def write_all_cleaned_xml_continuous():
         filled_data = fill_start_glucose_level_data_continuous(data, pd.Timedelta(5, 'm'))
         filled_data = fill_glucose_level_data_continuous(filled_data, pd.Timedelta(5, 'm'))
         write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
+
+def write_all_cleaned_xml():
+    for filepaths in ALL_FILE_PATHS:
+        data, patient_data = load(filepaths)
+        stringpath = filepath_to_string(filepaths)
+        filled_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
+        write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
+
 #endregion
 
 #region Statistics
@@ -940,19 +968,6 @@ def normalize(data, train_split):
     data_std = data[:train_split].std(axis=0)
     return (data - data_mean) / data_std
 
-def train_test_valid_split(glucose_data: pd.DataFrame):
-    cleaned_data = {}
-    for key in glucose_data.keys():
-        cleaned_data[key] = glucose_data[key].__deepcopy__()
-    cleaned_data = pd.DataFrame(cleaned_data)
-    cleaned_data.columns = cleaned_data.columns.astype(str)
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    cleaned_data = scaler.fit_transform(cleaned_data)
-    idx = int(0.8 * int(cleaned_data.shape[0]))
-    train_x = cleaned_data[:idx]
-    test_x = cleaned_data[idx:]
-    return train_x,  test_x
-
 def traintestsplitter(dataTrain: pd.DataFrame):
     dataTrain_70 = {}
     dataTrain_30 = {}
@@ -1026,11 +1041,12 @@ if __name__ == "__main__":  # runs only if program was ran from this file, does 
     #data, patient_data = load(TEST2_540_PATH)
     #dropped_data = drop_days_with_missing_eat_data(data,3)
     #print('ok')
-    train,test = load_everything()
+    #train,test = load_everything()
    #temp_data, temp_patient_data = load(TEST_559_PATH)
    #temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
    #temp_data = drop_meal_days(temp_data)
    #temp_data = fill_meal_with_zeros(temp_data)
+    write_all_cleaned_xml()
     print(" ")
     #data_glucose = fill_glucose_level_data_with_zeros(data, pd.Timedelta(5,'m'))
     #data_filled = fill_meal_zeros(data_glucose,pd.Timedelta(5,'m'))

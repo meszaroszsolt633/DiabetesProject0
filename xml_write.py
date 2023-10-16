@@ -1,6 +1,5 @@
 
 from xml_read import *
-from functions import *
 from defines import *
 
 
@@ -40,11 +39,4 @@ def filepath_to_string(filepath: str):
 
 
 if __name__ == "__main__":
-    for file_path in ALL_FILE_PATHS:
-        xml, patient = load(file_path)
-        stringpath=filepath_to_string(file_path)
-        cleaned = drop_days_with_missing_glucose_data(xml, 50)
-        write_to_xml(os.path.join(CLEANED_DATA_DIR, stringpath), cleaned, int(patient['id']),patient['insulin_type'],body_weight=int(patient['weight']))
-
-
-
+    print()

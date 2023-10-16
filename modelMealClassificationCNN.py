@@ -229,9 +229,9 @@ def model_meal_RNN_1DCONV(train_x, train_y, validX, validY, epochnumber,learning
 
 
 if __name__ == "__main__":
-    train, patient_data = load(TRAIN2_544_PATH)
-    test, patient_data = load(TEST2_544_PATH)
-    #train, test= loadeveryxml()
+    #train, patient_data = load(TRAIN2_544_PATH)
+    #test, patient_data = load(TEST2_544_PATH)
+    train, test= loadeveryxml()
     train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
     test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
     model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=15,epochnumber=1000,modelnumber=1,learning_rate=0.001,oversampling=False)
