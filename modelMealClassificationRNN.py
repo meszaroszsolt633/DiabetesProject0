@@ -291,15 +291,15 @@ def model_meal_RNN_multioutput(train_x, train_y, validX, validY, epochnumber, lr
 
 if __name__ == "__main__":
 
-    with tf.device('/cpu:0'):
-        print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-        #train_1, test_1 = loadeverycleanedxml()
-        train, test = loadeverycleanedxml()
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+    train, test = loadeverycleanedxml()
 
-        #train, patient_data = load(TRAIN2_540_PATH)
-        #test, patient_data = load(TEST2_540_PATH)
+    # train, patient_data = load(TRAIN2_540_PATH)
+    # test, patient_data = load(TEST2_540_PATH)
 
-        #train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
-        #test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
+    # train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
+    # test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
 
-        model_mealdetection_RNN(dataTrain=train,dataValidation=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=10,epochnumber=200,learning_rate=0.001,oversampling=False)
+    model_mealdetection_RNN(dataTrain=train, dataValidation=test, backward_slidingwindow=3, forward_slidingwindow=15,
+                            maxfiltersize=10, epochnumber=200, learning_rate=0.001, oversampling=False)
+

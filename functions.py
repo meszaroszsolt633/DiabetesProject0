@@ -1,6 +1,7 @@
 import math
 import ntpath
 
+from imblearn.over_sampling import SMOTE
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from sklearn.preprocessing import MinMaxScaler
@@ -14,6 +15,83 @@ import xml.dom.minidom as minidom
 
 from xml_write import filepath_to_string
 
+def dataPrepare(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindow, maxfiltersize=10,oversampling=False):
+    dataValidation = dataTest
+
+    # TRAIN
+
+    feature_train1 = dataTrain['glucose_level']
+    feature_train1.loc[:, 'carbs'] = ""
+    feature_train1['carbs'] = feature_train1['carbs'].apply(lambda x: 0)
+
+    feature_train2 = dataTrain['meal']
+    feature_train2 = feature_train2.drop(['type'], axis=1)
+    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1)
+
+    features_train = pd.concat([feature_train1, feature_train2])
+    features_train = features_train.sort_values(by='ts', ignore_index=True)
+
+    features_train_y = features_train['carbs']
+    features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
+    features_train_y = pd.DataFrame(features_train_y)
+
+    features_train_x = features_train['value']
+    features_train_x = pd.DataFrame(features_train_x)
+    features_train_x = features_train_x.fillna(method='ffill')
+    features_train_x['value'] = features_train_x['value'].astype('float64')
+
+    # VALIDATION
+
+    feature_validation1 = dataValidation['glucose_level']
+    feature_validation1.loc[:, 'carbs'] = ""
+    feature_validation1['carbs'] = feature_validation1['carbs'].apply(lambda x: 0)
+
+    feature_validation2 = dataValidation['meal']
+    feature_validation2 = feature_validation2.drop(['type'], axis=1)
+    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1)
+
+    features_validation = pd.concat([feature_validation1, feature_validation2])
+    features_validation = features_validation.sort_values(by='ts', ignore_index=True)
+
+    features_validation_y = features_validation['carbs']
+    features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
+    features_validation_y = pd.DataFrame(features_validation_y)
+
+    features_validation_x = features_validation['value']
+    features_validation_x = pd.DataFrame(features_validation_x)
+    features_validation_x = features_validation_x.fillna(method='ffill')
+    features_validation_x['value'] = features_validation_x['value'].astype('float64')
+
+    featuresvalidation = pd.concat([features_validation_y, features_validation_x], axis=1)
+    featurestrain = pd.concat([features_train_y, features_train_x], axis=1)
+
+    featurestrain.columns = featurestrain.columns.astype(str)
+    featuresvalidation.columns = featuresvalidation.columns.astype(str)
+
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    featurestrain = scaler.fit_transform(featurestrain)
+    featuresvalidation = scaler.transform(featuresvalidation)
+    if (oversampling == True):
+        trainY = featurestrain[:, 0]
+        trainX = featurestrain[:, 1]
+        trainY = trainY.reshape(-1, 1)
+        trainX = trainX.reshape(-1, 1)
+        smote = SMOTE(random_state=42)
+        trainX, trainY = smote.fit_resample(trainX, trainY)
+        featurestrain = np.column_stack((trainY, trainX))
+    trainX, trainY = create_variable_sliding_window_dataset(featurestrain, backward_slidingwindow,
+                                                            forward_slidingwindow)
+    validX, validY = create_variable_sliding_window_dataset(featuresvalidation, backward_slidingwindow,
+                                                            forward_slidingwindow)
+
+    trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
+    validX = np.reshape(validX, (validX.shape[0], validX.shape[1], 1))
+    print("Shape of trainX:", trainX.shape)
+    print("Shape of trainY:", trainY.shape)
+    print("Shape of validX:", validX.shape)
+    print("Shape of validY:", validY.shape)
+
+    return trainX, trainY, validX, validY
 
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
     counts = {'good': 0,
