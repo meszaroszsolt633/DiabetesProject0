@@ -962,9 +962,10 @@ def write_model_stats_out_xml(history, train, prediction, filename, backward_sli
     dom = minidom.parseString(root)
     pretty_xml_str = dom.toprettyxml()
 
+
     now = datetime.now()
-    dt_string = now.strftime("%Y/%m/%d_%H:%M")
-    filename = filename+"_"+dt_string+".xml"
+    dt_string = now.strftime("%Y.%m.%d_%H.%M")
+    filename = "{}_{}.xml".format(filename,dt_string)
     with open(filename, "w") as f:
         f.write(pretty_xml_str)
 
@@ -1060,7 +1061,7 @@ if __name__ == "__main__":  # runs only if program was ran from this file, does 
    #temp_data = fill_glucose_level_data_with_zeros(temp_data, pd.Timedelta(minutes=5))
    #temp_data = drop_meal_days(temp_data)
    #temp_data = fill_meal_with_zeros(temp_data)
-    write_all_cleaned_xml()
+    #write_all_cleaned_xml()
     print(" ")
     #data_glucose = fill_glucose_level_data_with_zeros(data, pd.Timedelta(5,'m'))
     #data_filled = fill_meal_zeros(data_glucose,pd.Timedelta(5,'m'))

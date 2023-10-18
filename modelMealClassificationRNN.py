@@ -145,7 +145,7 @@ def model_meal_RNN(train_x, train_y, validX, validY, backward_slidingwindow, for
     plt.legend()
     plt.show()
 
-    write_model_stats_out_xml(history, validY, prediction, "RNN_Model_Stat", backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling)
+    write_model_stats_out_xml(history, validY, prediction, "RNN", backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling)
 
 #endregion
 
@@ -304,4 +304,4 @@ if __name__ == "__main__":
     #train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
     #test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
 
-    model_mealdetection_RNN(dataTrain=train,dataValidation=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=10,epochnumber=200,learning_rate=0.001,oversampling=False)
+    model_mealdetection_RNN(dataTrain=train,dataValidation=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=10,epochnumber=5,learning_rate=0.001,oversampling=False)
