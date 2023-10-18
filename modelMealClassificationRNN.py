@@ -2,7 +2,7 @@ import pandas as pd
 from defines import *
 from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
     fill_glucose_level_data_continuous, loadeveryxml, create_dataset, create_dataset_multi, \
-    create_variable_sliding_window_dataset, loadeverycleanedxml
+    create_variable_sliding_window_dataset, loadeverycleanedxml, write_model_stats_out_xml
 import numpy as np
 from statistics import stdev
 from scipy import signal
@@ -99,12 +99,12 @@ def model_mealdetection_RNN(dataTrain, dataValidation,  backward_slidingwindow, 
     print("trainY:", trainY.shape)
     print("validX:", validX.shape)
     print("validY:", validY.shape)
-    model_meal_RNN(trainX, trainY, validX, validY, epochnumber, learning_rate)
+    model_meal_RNN(trainX, trainY, validX, validY, backward_slidingwindow, forward_slidingwindow, maxfiltersize, epochnumber, learning_rate, oversampling)
 
 
-def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
+def model_meal_RNN(train_x, train_y, validX, validY, backward_slidingwindow, forward_slidingwindow, maxfiltersize, epochnumber, learning_rate, oversampling):
     model = keras.Sequential()
-    opt = keras.optimizers.Adam(learning_rate=lrnng_rate)
+    opt = keras.optimizers.Adam(learning_rate=learning_rate)
     path_checkpoint = "modelMealRNN_checkpoint.h5"
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
     es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=15)
@@ -144,6 +144,8 @@ def model_meal_RNN(train_x, train_y, validX, validY,  epochnumber, lrnng_rate):
     plt.plot(validY[0:1440 * 3], label='test_data')
     plt.legend()
     plt.show()
+
+    write_model_stats_out_xml(history, validY, prediction, "RNN", backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling)
 
 #endregion
 
@@ -292,14 +294,14 @@ def model_meal_RNN_multioutput(train_x, train_y, validX, validY, epochnumber, lr
 if __name__ == "__main__":
 
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-    train, test = loadeverycleanedxml()
+    #train_1, test_1 = loadeverycleanedxml()
+    train, patient_data = load(CLEANEDTRAIN_559_PATH)
+    test, patient_data = load(CLEANEDTEST_559_PATH)
 
-    # train, patient_data = load(TRAIN2_540_PATH)
-    # test, patient_data = load(TEST2_540_PATH)
+    #train, patient_data = load(TRAIN2_540_PATH)
+    #test, patient_data = load(TEST2_540_PATH)
 
-    # train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
-    # test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
+    #train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
+    #test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
 
-    model_mealdetection_RNN(dataTrain=train, dataValidation=test, backward_slidingwindow=3, forward_slidingwindow=15,
-                            maxfiltersize=10, epochnumber=200, learning_rate=0.001, oversampling=False)
-
+    model_mealdetection_RNN(dataTrain=train,dataValidation=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=10,epochnumber=5,learning_rate=0.001,oversampling=False)
