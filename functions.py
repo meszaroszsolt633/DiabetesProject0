@@ -1,5 +1,6 @@
 import math
 import ntpath
+from datetime import datetime
 
 from imblearn.over_sampling import SMOTE
 from matplotlib import pyplot as plt
@@ -1114,15 +1115,21 @@ def create_variable_sliding_window_dataset(dataset, backward_steps, forward_step
     return np.array(dataX), np.array(dataY)
 
 
-def write_model_stats_out_xml(history, train, prediction, filename):
+def write_model_stats_out_xml(history, train, prediction, filename, backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling):
     #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
     root = "<root>"
     root += "<model>Model details:"
-
+    root += "<hyperparameters>"
+    root += "<backward_slidingwindow> {} </backward_slidingwindow>".format(backward_slidingwindow)
+    root += "<forward_slidingwindow> {} </forward_slidingwindow>".format(forward_slidingwindow)
+    root += "<maxfiltersize> {} </maxfiltersize>".format(maxfiltersize)
+    root += "<learning_rate> {} </learning_rate>".format(learning_rate)
+    root += "<oversampling> {} </oversampling>".format(oversampling)
+    root += "</hyperparameters>"
     root += "<layers>"
     layer = history.model.layers
     for idx in range(len(history.model.layers)):
-        if layer[idx].name == "dropout":
+        if "dropout" in layer[idx].name:
             root += "<layer>{} name:{} units:{} </layer>".format(idx+1, layer[idx].name, layer[idx].rate)
         elif "input" in layer[idx].name:
             root += "<layer>{} name:{} shape:{} </layer>".format(idx+1, layer[idx].name, layer[idx].input_shape)
@@ -1134,8 +1141,13 @@ def write_model_stats_out_xml(history, train, prediction, filename):
     root += "</layers>"
     root += "<history>"
     loss = history.history["loss"]
+    precision = history.history["precision"]
+    accuracy = history.history["accuracy"]
+    val_loss = history.history["val_loss"]
+    val_precision = history.history["val_precision"]
+    val_accuracy = history.history["val_accuracy"]
     for idx in range(len(history.history["loss"])):
-        root += "<loss> epoch:{} value:{} </loss>".format(idx, loss[idx])
+        root += "<metrics> epoch:{} loss:{} </metrics>".format(idx, loss[idx], precision[idx], accuracy[idx], val_loss[idx], val_precision[idx], val_accuracy[idx])
     root += "</history>"
     root += "</model>"
     root += "<data>"
@@ -1147,7 +1159,9 @@ def write_model_stats_out_xml(history, train, prediction, filename):
     #tree.write("Patients.xml", encoding="utf-8", xml_declaration=True, method="xml",pretty_print=True)
     dom = minidom.parseString(root)
     pretty_xml_str = dom.toprettyxml()
-
+    now = datetime.now()
+    dt_string = now.strftime("%Y.%m.%d_%H.%M")
+    filename = "{}_{}.xml".format(filename, dt_string)
     with open(filename, "w") as f:
         f.write(pretty_xml_str)
 
