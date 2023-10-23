@@ -1,8 +1,8 @@
 import pandas as pd
 from defines import *
 from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
-    fill_glucose_level_data_continuous, loadeveryxml, create_variable_sliding_window_dataset, data_preparation, \
-    loadeverycleanedxml
+    fill_glucose_level_data_continuous, loadeveryxml, create_variable_sliding_window_dataset, data_cleaner, \
+    loadeverycleanedxml, dataPrepareRegression
 import numpy as np
 from statistics import stdev
 from scipy import signal
@@ -158,12 +158,13 @@ def model_meal_RNN_1DCONV(train_x, train_y, validX, validY, epochnumber,learning
 
 
 if __name__ == "__main__":
-   #train, patient_data = load(TRAIN2_544_PATH)
-   #test, patient_data = load(TEST2_544_PATH)
-    train,test=loadeverycleanedxml()
-   #train = data_preparation(train, pd.Timedelta(5, "m"), 30, 3)
+    train, patient_data = load(TRAIN2_540_PATH)
+    test, patient_data = load(TEST2_540_PATH)
+    #train,test=loadeverycleanedxml()
+    #trainX, trainY,testX,testY = dataPrepare(train, test, 3, 15)
+    train = data_cleaner(train, pd.Timedelta(5, "m"), 30, 3)
+    test=data_cleaner(test, pd.Timedelta(5, "m"), 30, 3)
 
-   #test = data_preparation(test, pd.Timedelta(5, "m"), 30, 3)
 
     model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=15,epochnumber=100,modelnumber=1,learning_rate=0.001,oversampling=False)
 

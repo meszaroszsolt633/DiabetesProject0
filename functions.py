@@ -4,7 +4,7 @@ import ntpath
 from imblearn.over_sampling import SMOTE
 from matplotlib import pyplot as plt
 from scipy import ndimage
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from xml_read import *
 from xml_write import *
@@ -14,6 +14,26 @@ import numpy as np
 import xml.dom.minidom as minidom
 
 from xml_write import filepath_to_string
+
+
+def expand_peak(arr, expansion_factor=2, expansion_multiplier=0.8):
+    expanded_arr = [0] * len(arr)
+
+    for i in range(len(arr)):
+        if arr[i] != 0:
+            expanded_peak = [0] * (expansion_factor * 2 + 1)
+            expanded_peak[expansion_factor] = arr[i]
+
+            for j in range(expansion_factor):
+                value = expanded_peak[expansion_factor + j] * expansion_multiplier
+                expanded_peak[expansion_factor + j + 1] = value
+                expanded_peak[expansion_factor - j - 1] = value
+
+            for j in range(len(expanded_peak)):
+                expanded_arr[i - expansion_factor + j] = expanded_peak[j]
+
+    return expanded_arr
+
 
 def dataPrepare(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindow, maxfiltersize=10,oversampling=False):
     dataValidation = dataTest
@@ -37,7 +57,7 @@ def dataPrepare(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindo
 
     features_train_x = features_train['value']
     features_train_x = pd.DataFrame(features_train_x)
-    features_train_x = features_train_x.fillna(method='ffill')
+    features_train_x = features_train_x.ffill()
     features_train_x['value'] = features_train_x['value'].astype('float64')
 
     # VALIDATION
@@ -59,7 +79,7 @@ def dataPrepare(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindo
 
     features_validation_x = features_validation['value']
     features_validation_x = pd.DataFrame(features_validation_x)
-    features_validation_x = features_validation_x.fillna(method='ffill')
+    features_validation_x = features_validation_x.ffill()
     features_validation_x['value'] = features_validation_x['value'].astype('float64')
 
     featuresvalidation = pd.concat([features_validation_y, features_validation_x], axis=1)
@@ -79,6 +99,9 @@ def dataPrepare(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindo
         smote = SMOTE(random_state=42)
         trainX, trainY = smote.fit_resample(trainX, trainY)
         featurestrain = np.column_stack((trainY, trainX))
+
+    print("Shape of trainX:", featurestrain.shape)
+    print("Shape of trainY:", featuresvalidation.shape)
     trainX, trainY = create_variable_sliding_window_dataset(featurestrain, backward_slidingwindow,
                                                             forward_slidingwindow)
     validX, validY = create_variable_sliding_window_dataset(featuresvalidation, backward_slidingwindow,
@@ -92,6 +115,99 @@ def dataPrepare(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindo
     print("Shape of validY:", validY.shape)
 
     return trainX, trainY, validX, validY
+
+def dataPrepareRegression(dataTrain, dataTest, backward_slidingwindow, forward_slidingwindow, oversampling=False, expansion_factor=2, expansion_multiplier=0.8,scaling=False):
+    #TRAIN
+    train_glucose_level_df = dataTrain['glucose_level']
+    train_meal_df = dataTrain['meal']
+    train_glucose_level_df['ts'] = pd.to_datetime(train_glucose_level_df['ts'])
+    train_meal_df['ts'] = pd.to_datetime(train_meal_df['ts'])
+
+    train_merged_df = pd.merge(train_glucose_level_df, train_meal_df, on='ts',how='outer')
+
+    train_merged_df = train_merged_df.sort_values(by='ts')
+
+    train_merged_df.reset_index(drop=True, inplace=True)
+    train_merged_df.drop(columns=['type'], inplace=True)
+    train_merged_df.drop(columns=['ts'], inplace=True)
+
+    train_merged_df['carbs'].fillna(0, inplace=True)
+    train_merged_df['value'] = pd.to_numeric(train_merged_df['value'], errors='coerce')
+    train_merged_df['value'] = train_merged_df['value'].fillna((train_merged_df['value'].shift() + train_merged_df['value'].shift(-1)) / 2)
+
+    train_merged_df['carbs']=train_merged_df['carbs'].values.astype(float)
+    train_merged_df['value']=train_merged_df['value'].values.astype(float)
+
+    train_merged_df['carbs'] = expand_peak(train_merged_df['carbs'],expansion_factor,expansion_multiplier)
+    train_merged_df = pd.DataFrame(train_merged_df)
+
+    # TEST
+    test_glucose_level_df = dataTest['glucose_level']
+    test_meal_df = dataTest['meal']
+    test_glucose_level_df['ts'] = pd.to_datetime(test_glucose_level_df['ts'])
+    test_meal_df['ts'] = pd.to_datetime(test_meal_df['ts'])
+
+    test_merged_df = pd.merge(test_glucose_level_df, test_meal_df, on='ts', how='outer')
+
+    test_merged_df = test_merged_df.sort_values(by='ts')
+
+    test_merged_df.reset_index(drop=True, inplace=True)
+    test_merged_df.drop(columns=['type'], inplace=True)
+    test_merged_df.drop(columns=['ts'], inplace=True)
+
+    test_merged_df['carbs'].fillna(0, inplace=True)
+    test_merged_df['value'] = pd.to_numeric(test_merged_df['value'], errors='coerce')
+    test_merged_df['value'] = test_merged_df['value'].fillna(
+        (test_merged_df['value'].shift() + test_merged_df['value'].shift(-1)) / 2)
+
+    test_merged_df['carbs'] = test_merged_df['carbs'].values.astype(float)
+    test_merged_df['value'] = test_merged_df['value'].values.astype(float)
+
+    test_merged_df['carbs'] = expand_peak(test_merged_df['carbs'], expansion_factor, expansion_multiplier)
+    test_merged_df = pd.DataFrame(test_merged_df)
+
+    test_merged_df = test_merged_df.dropna()
+    train_merged_df = train_merged_df.dropna()
+
+
+    scaler_x = MinMaxScaler()
+    scaler_y = MinMaxScaler()
+
+    if(scaling==True):
+        train_merged_df['value'] = scaler_x.fit_transform(train_merged_df['value'].values.reshape(-1, 1)).flatten()
+
+
+        test_merged_df['value'] = scaler_x.transform(test_merged_df['value'].values.reshape(-1, 1)).flatten()
+
+
+        train_merged_df['carbs'] = scaler_y.fit_transform(train_merged_df['carbs'].values.reshape(-1, 1)).flatten()
+
+
+        test_merged_df['carbs'] = scaler_y.transform(test_merged_df['carbs'].values.reshape(-1, 1)).flatten()
+
+    print("Shape of trainX:", train_merged_df.shape)
+    print("Shape of trainY:", test_merged_df.shape)
+    train_merged_df=train_merged_df.values
+    train_merged_df[:, [0, 1]] = train_merged_df[:, [1, 0]]
+    test_merged_df=test_merged_df.values
+    test_merged_df[:, [0, 1]] = test_merged_df[:, [1, 0]]
+
+    trainX, trainY = create_variable_sliding_window_dataset(train_merged_df, backward_slidingwindow,
+                                                            forward_slidingwindow)
+    validX, validY = create_variable_sliding_window_dataset(test_merged_df, backward_slidingwindow,
+                                                            forward_slidingwindow)
+
+    trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
+    validX = np.reshape(validX, (validX.shape[0], validX.shape[1], 1))
+
+    print("Shape of trainX:", trainX.shape)
+    print("Shape of trainY:", trainY.shape)
+    print("Shape of validX:", validX.shape)
+    print("Shape of validY:", validY.shape)
+
+    return trainX, trainY, validX, validY
+
+
 
 def count_missing_data(measurements: pd.DataFrame, time_step: pd.Timedelta) -> dict[str, int]:
     counts = {'good': 0,
@@ -549,7 +665,7 @@ def write_all_cleaned_xml():
     for filepaths in ALL_FILE_PATHS:
         data, patient_data = load(filepaths)
         stringpath = filepath_to_string(filepaths)
-        filled_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
+        filled_data = data_cleaner(data, pd.Timedelta(5, "m"), 30, 3)
         write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
 
 #endregion
@@ -986,7 +1102,10 @@ def create_dataset_multi(dataset, look_back=1):
         dataY.append(dataset[i, 0:2])
     return np.array(dataX), np.array(dataY)
 def create_variable_sliding_window_dataset(dataset, backward_steps, forward_steps):
+    if not isinstance(dataset, np.ndarray):
+        dataset = dataset.values
     dataX, dataY = [], []
+    #assumes second column is the target
     for i in range(backward_steps, len(dataset) - forward_steps):
         a = dataset[i-backward_steps:(i +forward_steps), 1]
         b = dataset[i, 0]
@@ -1081,8 +1200,8 @@ def visualize_loss(history, title):
     plt.legend()
     plt.show()
 
-def data_preparation(data: dict[str, pd.DataFrame], time_step: pd.Timedelta, missing_count_threshold,
-                     missing_eat_threshold) -> dict[str, pd.DataFrame]:
+def data_cleaner(data: dict[str, pd.DataFrame], time_step: pd.Timedelta, missing_count_threshold,
+                    missing_eat_threshold) -> dict[str, pd.DataFrame]:
     cleaned_data = drop_days_with_missing_glucose_data(data, missing_count_threshold)
     print('Glucose drop done')
     cleaned_data = drop_days_with_missing_eat_data(cleaned_data, missing_eat_threshold)

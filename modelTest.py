@@ -4,7 +4,7 @@ import numpy as np
 from statistics import stdev
 from scipy import signal
 
-from functions import count_ones_and_zeros, create_dataset, data_preparation
+from functions import count_ones_and_zeros, create_dataset, data_preprocess
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
@@ -144,8 +144,8 @@ def modelMeal(train_x, validX, validY, train_y, look_back):
 if __name__ == "__main__":
     dataTrain, patient_data = load(TRAIN2_544_PATH)
     dataValidation, patient_data = load(TEST2_544_PATH)
-    dataTrain = data_preparation(dataTrain, pd.Timedelta(5, "m"), 30, 3)
-    dataValidation = data_preparation(dataValidation, pd.Timedelta(5, "m"), 30, 3)
+    dataTrain = data_preprocess(dataTrain, pd.Timedelta(5, "m"), 30, 3)
+    dataValidation = data_preprocess(dataValidation, pd.Timedelta(5, "m"), 30, 3)
     model2(dataTrain,dataValidation)
 
 
