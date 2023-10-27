@@ -43,14 +43,14 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001):
 
     path_checkpoint = "modelMealCNN_checkpoint.h5"
     opt = keras.optimizers.Adam(learning_rate=learning_rate)
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=30)
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+    es_callback = keras.callbacks.EarlyStopping(monitor="recall", min_delta=0, patience=30)
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='recall', factor=0.2, patience=5, min_lr=0.001)
 
     class_weights = {0: 1.,
-                     1: 2.}
+                     1: 6.}
 
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
-        monitor="val_loss",
+        monitor="recall",
         filepath=path_checkpoint,
         verbose=1,
         save_weights_only=True,
@@ -94,11 +94,13 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001):
 
 def model_meal_RNN_1DCONV(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001):
     model = keras.Sequential()
+    F1_score=tfa.metrics.F1Score(num_classes=1,average='macro',threshold=0.5)
+
 
     opt = keras.optimizers.Adam(learning_rate=learning_rate)
     path_checkpoint = "modelMeal_checkpoint.h5"
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=40)
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor=F1_score, factor=0.2, patience=5, min_lr=0.001)
+    es_callback = keras.callbacks.EarlyStopping(monitor=F1_score, min_delta=0, patience=40)
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
         filepath=path_checkpoint,
@@ -158,15 +160,14 @@ def model_meal_RNN_1DCONV(train_x, train_y, validX, validY, epochnumber,learning
 
 
 if __name__ == "__main__":
-    train, patient_data = load(TRAIN2_540_PATH)
-    test, patient_data = load(TEST2_540_PATH)
-    #train,test=loadeverycleanedxml()
-    #trainX, trainY,testX,testY = dataPrepare(train, test, 3, 15)
-    train = data_cleaner(train, pd.Timedelta(5, "m"), 30, 3)
-    test=data_cleaner(test, pd.Timedelta(5, "m"), 30, 3)
+  train, patient_data = load(TRAIN2_544_PATH)
+  test, patient_data = load(TEST2_544_PATH)
+  ##train,test=loadeverycleanedxml()
+  train = data_cleaner(train, pd.Timedelta(5, "m"), 30, 3)
+  test=data_cleaner(test, pd.Timedelta(5, "m"), 30, 3)
 
 
-    model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=15,epochnumber=100,modelnumber=1,learning_rate=0.001,oversampling=False)
+  model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=10,maxfiltersize=15,epochnumber=100,modelnumber=1,learning_rate=0.001,oversampling=True)
 
 
 

@@ -201,7 +201,7 @@ transformer = Transformer(num_layers=1, D=32, H=4, hidden_mlp_dim=32,
 optimizer = torch.optim.RMSprop(transformer.parameters(),
                                 lr=0.00005)
 
-n_epochs = 20
+n_epochs = 500
 niter = len(train_dataset)
 losses, val_losses = [], []
 

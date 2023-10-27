@@ -1,152 +1,132 @@
-import pandas as pd
-from defines import *
 import numpy as np
-from statistics import stdev
-from scipy import signal
-
-from functions import count_ones_and_zeros, create_dataset, data_preprocess
+import pandas as pd
+from scipy.linalg import svd
 from xml_read import load
-import matplotlib.pyplot as plt
-from tensorflow import keras
-import tensorflow as tf
-from scipy import ndimage
-from keras.models import Model
-from keras import metrics
-from keras.layers import Input, LSTM, Dense, Dropout
-from sklearn.preprocessing import MinMaxScaler
-from imblearn.over_sampling import SMOTE
+from defines import *
+from datetime import timedelta
+
+def carbohydrate_event_occurred(df, k,minutesCarb):
+
+    time=df['glucose_level']['ts'][k]
+    time_x_minutes_before = time - timedelta(minutes=minutesCarb)
+    mask = (df['meal']['ts'] >= time_x_minutes_before) & (df['meal']['ts'] <= time)
+    exists_between = (df['meal'][mask] != pd.Timestamp(0)).any()
+    return exists_between['ts']
+
+
+def exercise_event_occurred(df, k, minutesCarb):
+    time = df['glucose_level']['ts'][k]
+    time_x_minutes_before = time - timedelta(minutes=minutesCarb)
+
+    mask = (df['exercise']['ts'] >= time_x_minutes_before) & (df['exercise']['ts'] <= time)
+
+    # Checking if there's any timestamp between those times in the exercise column
+    exists_between = (df['exercise'][mask] != pd.Timestamp(0)).any()
+    return exists_between['ts']
 
 
 
-def model2(dataTrain, dataValidation, lookback=50, maxfiltersize=10, epochnumber=50):
+
+def bolus_injection_occurred(df, k, minutesCarb):
+    time = df['glucose_level']['ts'][k]
+    time_x_minutes_before = time - timedelta(minutes=minutesCarb)
+
+    mask = (df['bolus']['ts_end'] >= time_x_minutes_before) & (df['bolus']['ts_end'] <= time)
+
+    # Checking if there's any timestamp between those times in the exercise column
+    exists_between = (df['bolus'][mask] != pd.Timestamp(0)).any()
+    return exists_between['ts_end']
+
+def hankelize(data):
+    L = len(data) // 2 + 1
+    J = len(data) - L + 1
+    H = np.zeros((L, J))
+    for i in range(L):
+        for j in range(J):
+            H[i, j] = data.iloc[i + j]
+    return H
 
 
-    #TRAIN
+def diagonal_averaging(mat):
+    return np.mean(mat, axis=1)
 
-    feature_train1 = dataTrain['glucose_level']
-    feature_train1['carbs'] = ""
-    feature_train1['carbs'] = feature_train1['carbs'].apply(lambda x: 0)
+def segment_data(data,outliers):
+    segments = []
 
-    feature_train2 = dataTrain['meal']
-    feature_train2 = feature_train2.drop(['type'], axis=1)
-    feature_train2['carbs'] = feature_train2['carbs'].apply(lambda x: 1)
+    # Starting point for the first segment
+    start_idx = 0
 
-    features_train = pd.concat([feature_train1, feature_train2])
-    features_train = features_train.sort_values(by='ts', ignore_index=True)
+    for outlier in outliers:
+        # If there's a difference of more than one between the start index and the outlier,
+        # add this segment to the list (this ensures we don't add empty segments).
+        if outlier - start_idx > 1:
+            segments.append(data[start_idx:outlier])
 
-    features_train_y = features_train['carbs']
-    count_zeros, count_ones = count_ones_and_zeros(features_train_y)
-    print("train:\n")
-    print(f"Number of 0s: {count_zeros}")
-    print(f"Number of 1s: {count_ones}")
-    features_train_y = ndimage.maximum_filter(features_train_y, size=maxfiltersize)
-    features_train_y = pd.DataFrame(features_train_y)
+        # Set the starting index for the next segment to be the element after the current outlier.
+        start_idx = outlier + 1
 
-    features_train_x = features_train['value']
-    features_train_x = pd.DataFrame(features_train_x)
-    features_train_x = features_train_x.fillna(method='ffill')
-    features_train_x['value'] = features_train_x['value'].astype('float64')
+    # Handle the segment from the last outlier to the end of the data.
+    if start_idx < len(data):
+        segments.append(data[start_idx:])
 
+    return segments
 
-    #VALIDATION
-
-    feature_validation1 = dataValidation['glucose_level']
-    feature_validation1['carbs'] = ""
-    feature_validation1['carbs'] = feature_validation1['carbs'].apply(lambda x: 0)
-
-    feature_validation2 = dataValidation['meal']
-    feature_validation2 = feature_validation2.drop(['type'], axis=1)
-    feature_validation2['carbs'] = feature_validation2['carbs'].apply(lambda x: 1)
-
-    features_validation = pd.concat([feature_validation1, feature_validation2])
-    features_validation = features_validation.sort_values(by='ts', ignore_index=True)
-
-    features_validation_y = features_validation['carbs']
-    count_zeros, count_ones = count_ones_and_zeros(features_validation_y)
-    print("validation:\n")
-    print(f"Number of 0s: {count_zeros}")
-    print(f"Number of 1s: {count_ones}")
-    features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
-    features_validation_y = pd.DataFrame(features_validation_y)
-
-    features_validation_x = features_validation['value']
-    features_validation_x = pd.DataFrame(features_validation_x)
-    features_validation_x = features_validation_x.fillna(method='ffill')
-    features_validation_x['value'] = features_validation_x['value'].astype('float64')
+def process_cgm_values(train,minutesCarb,minutesBolus,minutesExercise):
+    # Step 1
 
 
-    featuresvalidation  = pd.concat([features_validation_y, features_validation_x], axis=1)
-    featurestrain=pd.concat([features_train_y,features_train_x],axis=1)
-
-    featurestrain.columns = featurestrain.columns.astype(str)
-    featuresvalidation.columns = featuresvalidation.columns.astype(str)
+    train['glucose_level']['value']=train['glucose_level']['value'].values.astype(int)
+    train['meal']['carbs'] = train['meal']['carbs'].values.astype(int)
+    train['bolus']['dose'] = train['bolus']['dose'].values.astype(float)
+    train['exercise']['intensity'] = train['exercise']['intensity'].values.astype(float)
 
 
 
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    featurestrain=scaler.fit_transform(featurestrain)
-    featuresvalidation=scaler.transform(featuresvalidation)
+    outliers = []
+    for k in range(1, len( train['glucose_level']['value'])):
+        diff =  train['glucose_level']['value'][k] -  train['glucose_level']['value'][k - 1]
+        if abs(diff) > 30:
+            outlier_condition = True
+            if abs(diff) > 30 and carbohydrate_event_occurred(train, k,minutesCarb)==True:
+                outlier_condition = False
+            elif diff < 30 and bolus_injection_occurred(train, k,minutesBolus)==True:
+                outlier_condition = False
+            elif diff < 30 and exercise_event_occurred(train, k,minutesExercise)==True:
+                outlier_condition = False
+            if outlier_condition:
+                outliers.append(k)
 
+    segments = segment_data(train['glucose_level']['value'], outliers)
 
-    trainY_np = features_train_y.values
-    validY_np = features_validation_y.values
+    denoised_segments = []
 
-    trainX,trainY = create_dataset(featurestrain, lookback)
-    validX,validY = create_dataset(featuresvalidation, lookback)
+    for segment in segments:
+        Q = segment
 
-    trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
-    validX = np.reshape(validX, (validX.shape[0], validX.shape[1], 1))
+        H = hankelize(Q)
+        U, S, Vt = svd(H)
 
-    print("trainX:",trainX.shape)
-    print("trainY:",trainY.shape)
-    print("validX:",validX.shape)
-    print("validY:", validY.shape)
+        cumulative_sum = np.cumsum(S)
+        total_sum = cumulative_sum[-1]
+        indices_to_keep = np.where(cumulative_sum < 0.6 * total_sum)[0]
+        S_reduced = np.diag(S[indices_to_keep])
 
+        U_reduced = U[:, indices_to_keep]
+        Vt_reduced = Vt[indices_to_keep, :]
+        H_reconstructed = U_reduced @ S_reduced @ Vt_reduced
+        denoised_segment = diagonal_averaging(H_reconstructed)
 
-    modelMeal(trainX, validX, validY, trainY, epochnumber)
+        denoised_segments.append(denoised_segment)
+    highest_value = float('-inf')
+    for arr in denoised_segments:
+        current_max = np.max(arr)
+        if current_max > highest_value:
+            highest_value = current_max
 
+    print(highest_value)
+    return denoised_segments
 
-def modelMeal(train_x, validX, validY, train_y, look_back):
-    model = keras.Sequential()
-
-    opt = keras.optimizers.Adam(learning_rate=0.01)
-    path_checkpoint = "modelMeal_checkpoint.h5"
-    es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=5)
-    modelckpt_callback = keras.callbacks.ModelCheckpoint(
-        monitor="val_loss",
-        filepath=path_checkpoint,
-        verbose=1,
-        save_weights_only=True,
-        save_best_only=True,
-    )
-
-    model.add(LSTM(128, return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
-    model.add(Dropout(0.3))
-    model.add(LSTM(64, return_sequences=False))
-    model.add(Dropout(0.3))
-    model.add(Dense(1, activation="sigmoid"))
-
-    model.summary()
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=['accuracy',
-                       metrics.Precision(name='precision'),
-                       metrics.Recall(name='recall')])
-    model.fit(train_x, train_y, epochs=100, callbacks=[ modelckpt_callback], verbose=1, shuffle=False,
-              validation_data=(validX, validY))
-
-    prediction = model.predict(validX)
-    plt.figure(figsize=(20, 6))
-    plt.plot(prediction[0:1440 * 3], label='prediction')
-    plt.plot(validY[0:1440 * 3], label='test_data')
-    plt.legend()
-    plt.show()
-
-
-if __name__ == "__main__":
-    dataTrain, patient_data = load(TRAIN2_544_PATH)
-    dataValidation, patient_data = load(TEST2_544_PATH)
-    dataTrain = data_preprocess(dataTrain, pd.Timedelta(5, "m"), 30, 3)
-    dataValidation = data_preprocess(dataValidation, pd.Timedelta(5, "m"), 30, 3)
-    model2(dataTrain,dataValidation)
-
-
+data,_=load(TRAIN2_544_PATH)
+test=process_cgm_values(data,45,30,30)
+print("""""")
 
