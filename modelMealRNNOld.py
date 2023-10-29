@@ -4,7 +4,7 @@ import numpy as np
 from statistics import stdev
 from scipy import signal
 
-from functions import create_dataset, train_test_valid_split, data_preparation
+from functions import create_dataset, train_test_valid_split, data_preprocess
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
@@ -85,7 +85,7 @@ def modelMeal(train_x, validX, validY, train_y, look_back):
 
 if __name__ == "__main__":
     data, patient_data = load(TRAIN2_540_PATH)
-    clean_data = data_preparation(data, pd.Timedelta(5, "m"), 30, 3)
+    clean_data = data_preprocess(data, pd.Timedelta(5, "m"), 30, 3)
     model2(clean_data)
 
 

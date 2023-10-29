@@ -7,7 +7,7 @@ import numpy as np
 from statistics import stdev
 from scipy import signal
 
-from modelMealClassificationCNN import data_preparation
+from modelMealClassificationCNN import data_preprocess
 from xml_read import load
 import matplotlib.pyplot as plt
 from tensorflow import keras
