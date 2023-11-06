@@ -269,6 +269,25 @@ def loadeverycleanedxml():
 
     return merged_train_data,merged_test_data
 
+def loadeveryxmlparam(train, test):
+    train_dicts = [load(f) for f in train]
+    test_dicts = [load(f) for f in test]
+
+    merged_train_data = {key: pd.DataFrame() for key in train_dicts[0][0].keys()}
+    merged_test_data = {key: pd.DataFrame() for key in test_dicts[0][0].keys()}
+
+    for train_dict in train_dicts:
+        for key in merged_train_data.keys():
+            if key in train_dict[0]:
+                merged_train_data[key] = pd.concat([merged_train_data[key], train_dict[0][key]], ignore_index=True)
+
+    for test_dict in test_dicts:
+        for key in merged_test_data.keys():
+            if key in test_dict[0]:
+                merged_test_data[key] = pd.concat([merged_test_data[key], test_dict[0][key]], ignore_index=True)
+
+    return merged_train_data,merged_test_data
+
 def loadeveryxml():
     train_dicts = [load(f) for f in ALL_TRAIN_FILE_PATHS]
     test_dicts = [load(f) for f in ALL_TEST_FILE_PATHS]
@@ -1115,7 +1134,7 @@ def create_variable_sliding_window_dataset(dataset, backward_steps, forward_step
     return np.array(dataX), np.array(dataY)
 
 
-def write_model_stats_out_xml(history, train, prediction, filename, backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling):
+def write_model_stats_out_xml_classification(history, train, prediction, filename, backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling):
     #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
     root = "<root>"
     root += "<model>Model details:"
@@ -1147,7 +1166,7 @@ def write_model_stats_out_xml(history, train, prediction, filename, backward_sli
     val_precision = history.history["val_precision"]
     val_accuracy = history.history["val_accuracy"]
     for idx in range(len(history.history["loss"])):
-        root += "<metrics> epoch:{} loss:{} </metrics>".format(idx, loss[idx], precision[idx], accuracy[idx], val_loss[idx], val_precision[idx], val_accuracy[idx])
+        root += "<metrics> epoch:{} loss:{} precision:{}, accuracy:{}, val_loss:{}, val_precision:{}, val_accuracy:{}</metrics>".format(idx, loss[idx], precision[idx], accuracy[idx], val_loss[idx], val_precision[idx], val_accuracy[idx])
     root += "</history>"
     root += "</model>"
     root += "<data>"
@@ -1165,6 +1184,55 @@ def write_model_stats_out_xml(history, train, prediction, filename, backward_sli
     with open(filename, "w") as f:
         f.write(pretty_xml_str)
 
+def write_model_stats_out_xml_regression(history, train, prediction, filename, backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling):
+    #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
+    root = "<root>"
+    root += "<model>Model details:"
+    root += "<hyperparameters>"
+    root += "<backward_slidingwindow> {} </backward_slidingwindow>".format(backward_slidingwindow)
+    root += "<forward_slidingwindow> {} </forward_slidingwindow>".format(forward_slidingwindow)
+    root += "<maxfiltersize> {} </maxfiltersize>".format(maxfiltersize)
+    root += "<learning_rate> {} </learning_rate>".format(learning_rate)
+    root += "<oversampling> {} </oversampling>".format(oversampling)
+    root += "</hyperparameters>"
+    root += "<layers>"
+    layer = history.model.layers
+    for idx in range(len(history.model.layers)):
+        if "dropout" in layer[idx].name:
+            root += "<layer>{} name:{} units:{} </layer>".format(idx+1, layer[idx].name, layer[idx].rate)
+        elif "input" in layer[idx].name:
+            root += "<layer>{} name:{} shape:{} </layer>".format(idx+1, layer[idx].name, layer[idx].input_shape)
+        elif "dense" in layer[idx].name:
+            root += "<layer>{} name:{} units:{} </layer>".format(idx + 1, layer[idx].name,
+                                                                               layer[idx].units,)
+        else:
+            root += "<layer>{} name:{} units:{}  return_sequences:{} </layer>".format(idx+1,layer[idx].name, layer[idx].units, layer[idx].return_sequences)
+    root += "</layers>"
+    root += "<history>"
+    loss = history.history["loss"]
+    precision = history.history["precision"]
+    accuracy = history.history["accuracy"]
+    val_loss = history.history["val_loss"]
+    val_precision = history.history["val_precision"]
+    val_accuracy = history.history["val_accuracy"]
+    for idx in range(len(history.history["loss"])):
+        root += "<metrics> epoch:{} loss:{} precision:{}, accuracy:{}, val_loss:{}, val_precision:{}, val_accuracy:{}</metrics>".format(idx, loss[idx], precision[idx], accuracy[idx], val_loss[idx], val_precision[idx], val_accuracy[idx])
+    root += "</history>"
+    root += "</model>"
+    root += "<data>"
+    for i in range (len(train)):
+        root += "<row> train/prediction: {}/{} </row>".format(train[i],prediction[i])
+
+    root += "</data>"
+    root += "</root>"
+    #tree.write("Patients.xml", encoding="utf-8", xml_declaration=True, method="xml",pretty_print=True)
+    dom = minidom.parseString(root)
+    pretty_xml_str = dom.toprettyxml()
+    now = datetime.now()
+    dt_string = now.strftime("%Y.%m.%d_%H.%M")
+    filename = "{}_{}.xml".format(filename, dt_string)
+    with open(filename, "w") as f:
+        f.write(pretty_xml_str)
 def count_ones_and_zeros(array):
     unique_elements, counts = np.unique(array, return_counts=True)
     counts_dict = dict(zip(unique_elements, counts))
