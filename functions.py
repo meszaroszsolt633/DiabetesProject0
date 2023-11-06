@@ -1185,16 +1185,18 @@ def write_model_stats_out_xml_classification(history, train, prediction, filenam
     with open(filename, "w") as f:
         f.write(pretty_xml_str)
 
-def write_model_stats_out_xml_regression(history, train, prediction, filename, backward_slidingwindow, forward_slidingwindow, maxfiltersize, learning_rate, oversampling):
+def write_model_stats_out_xml_regression(history, validy, prediction, filename, backward_slidingwindow, forward_slidingwindow, learning_rate, oversampling, scaling,expansion_factor,expansion_multiplier):
     #print("Glucose level threshold number: {} | Meal threshold number: {}".format(threshholdnumber,mealcount))
     root = "<root>"
     root += "<model>Model details:"
     root += "<hyperparameters>"
     root += "<backward_slidingwindow> {} </backward_slidingwindow>".format(backward_slidingwindow)
     root += "<forward_slidingwindow> {} </forward_slidingwindow>".format(forward_slidingwindow)
-    root += "<maxfiltersize> {} </maxfiltersize>".format(maxfiltersize)
     root += "<learning_rate> {} </learning_rate>".format(learning_rate)
     root += "<oversampling> {} </oversampling>".format(oversampling)
+    root += "<scaling> {} </scaling>".format(scaling)
+    root += "<expansion_factor> {} </expansion_factor>".format(expansion_factor)
+    root += "<expansion_multiplier> {} </expansion_multiplier>".format(expansion_multiplier)
     root += "</hyperparameters>"
     root += "<layers>"
     layer = history.model.layers
@@ -1211,18 +1213,20 @@ def write_model_stats_out_xml_regression(history, train, prediction, filename, b
     root += "</layers>"
     root += "<history>"
     loss = history.history["loss"]
-    precision = history.history["precision"]
-    accuracy = history.history["accuracy"]
+    mae = history.history["mae"]
+    mse = history.history["mse"]
+    rmse = history.history["root_mean_squared_error"]
     val_loss = history.history["val_loss"]
-    val_precision = history.history["val_precision"]
-    val_accuracy = history.history["val_accuracy"]
+    val_mae = history.history["val_mae"]
+    val_mse = history.history["val_mse"]
+    val_rmse = history.history["val_root_mean_squared_error"]
     for idx in range(len(history.history["loss"])):
-        root += "<metrics> epoch:{} loss:{} precision:{}, accuracy:{}, val_loss:{}, val_precision:{}, val_accuracy:{}</metrics>".format(idx, loss[idx], precision[idx], accuracy[idx], val_loss[idx], val_precision[idx], val_accuracy[idx])
+        root += "<metrics> epoch:{} loss:{} mae:{}, mse:{}, rmse:{}, val_loss:{}, val_mae:{}, val_mse:{}, val_rmse:{}</metrics>".format(idx, loss[idx], mae[idx], mse[idx], rmse[idx], val_loss[idx], val_mae[idx], val_mse[idx], val_rmse[idx])
     root += "</history>"
     root += "</model>"
     root += "<data>"
-    for i in range (len(train)):
-        root += "<row> train/prediction: {}/{} </row>".format(train[i],prediction[i])
+    for i in range (len(validy)):
+        root += "<row> train/prediction: {}/{} </row>".format(validy[i], prediction[i])
 
     root += "</data>"
     root += "</root>"
