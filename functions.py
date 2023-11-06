@@ -36,6 +36,7 @@ def expand_peak(arr, expansion_factor=2, expansion_multiplier=0.8):
     return expanded_arr
 
 
+
 def dataPrepare(dataTrain, dataTest, backward_slidingwindow,forward_slidingwindow, maxfiltersize=10,oversampling=False):
     dataValidation = dataTest
 

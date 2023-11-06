@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 import numpy as np
 from tqdm import tqdm
+from torch.nn.functional import mse_loss, l1_loss
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -41,7 +42,7 @@ def data_to_dataset(train_x, train_y,validX,validY, batch_size=32):
     return train_loader, val_loader
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+print(device)
 class MultiHeadAttention(nn.Module):
     '''Multi-head self-attention module'''
     def __init__(self, D, H):
@@ -111,6 +112,13 @@ def positional_encoding(D, position=20, dim=3, device=device):
     elif dim == 4:
         pos_encoding = angle_rads[np.newaxis,np.newaxis,  ...]
     return torch.tensor(pos_encoding, device=device)
+
+
+def mean_absolute_error(output, target):
+    with torch.no_grad():
+        mae = torch.mean(torch.abs(output - target)).item()
+    return mae
+
 
 def create_look_ahead_mask(size, device=device):
     mask = torch.ones((size, size), device=device)
@@ -196,14 +204,15 @@ param_sizes = [p.numel() for p in transformer.parameters()]
 print(f"number of weight/biases matrices: {len(param_sizes)} "
       f"for a total of {np.sum(param_sizes)} parameters ")
 
-transformer = Transformer(num_layers=1, D=32, H=4, hidden_mlp_dim=32,
+transformer = Transformer(num_layers=3, D=64, H=4, hidden_mlp_dim=64,
                           inp_features=1, out_features=1, dropout_rate=0.1).to(device)
 optimizer = torch.optim.RMSprop(transformer.parameters(),
                                 lr=0.00005)
 
-n_epochs = 500
+n_epochs = 1000
 niter = len(train_dataset)
 losses, val_losses = [], []
+maes = []
 
 for e in tqdm(range(n_epochs)):
 
@@ -220,17 +229,41 @@ for e in tqdm(range(n_epochs)):
         optimizer.step()
     losses.append(sum_train_loss / niter)
 
-
     transformer.eval()
     sum_val_loss = 0.0
+    epoch_maes = []
+
+    sum_mae, sum_mse = 0.0, 0.0
     for i, (x, y) in enumerate(val_dataset):
         S = x.shape[1]
         mask = create_look_ahead_mask(S)
         out, _ = transformer(x, mask)
         loss = torch.nn.MSELoss()(out, y)
         sum_val_loss += loss.item()
+
+        sum_mae += l1_loss(out, y).item()  # MAE
+        sum_mse += mse_loss(out, y).item()  # MSE
+
+        mae = mean_absolute_error(out, y)
+        epoch_maes.append(mae)
+
+    maes.append(np.mean(epoch_maes))
     val_losses.append(sum_val_loss / (i + 1))
-plt.plot(losses)
-plt.plot(val_losses);
+mean_mae = sum_mae / (i + 1)
+mean_mse = sum_mse / (i + 1)
+print(f'Validation MAE: {mean_mae}, Validation MSE: {mean_mse}')
+
+
+plt.figure(figsize=(12, 4))
+plt.subplot(1, 2, 1)
+plt.plot(losses, label='Training Loss')
+plt.plot(val_losses, label='Validation Loss')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(maes, label='Validation MAE')
+plt.legend()
+
+plt.tight_layout()
 plt.show()
 
