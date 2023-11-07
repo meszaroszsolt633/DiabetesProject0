@@ -5,7 +5,7 @@ import json
 
 start = time.perf_counter()
 
-data = RequestData.DiabAPIreq(username="sotetestkey", collection="buckinghamdataset")
+data = RequestData.DiabAPIreq(username="sotetestkey", collection="halldataset")
 
 endreq = time.perf_counter()
 ms1 = (endreq - start)
