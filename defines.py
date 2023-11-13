@@ -104,6 +104,50 @@ data_test2 = [CLEANEDTEST_570_PATH, CLEANEDTEST2_596_PATH, CLEANEDTEST_563_PATH,
 data_train3 = [CLEANEDTRAIN_559_PATH, CLEANEDTRAIN_563_PATH, CLEANEDTRAIN_570_PATH, CLEANEDTRAIN_575_PATH, CLEANEDTRAIN_588_PATH, CLEANEDTRAIN_591_PATH]
 data_test3 = [CLEANEDTEST2_540_PATH, CLEANEDTEST2_544_PATH, CLEANEDTEST2_552_PATH, CLEANEDTEST2_584_PATH, CLEANEDTEST2_596_PATH]
 
+RNN_559_563_1 = "RNN_559_563_2023.11.04_18.02.xml"
+RNN_559_563_2 = "RNN_559_563_2023.11.04_19.51.xml"
+RNN_559_563_3 = "RNN_559_563_2023.11.04_20.17.xml"
+RNN_559_563_4 = "RNN_559_563_2023.11.04_22.12.xml"
+RNN_559_563_5 = "RNN_559_563_2023.11.04_23.25.xml"
+RNN_559_563_6 = "RNN_559_563_2023.11.04_23.56.xml"
+RNN_559_563_7 = "RNN_559_563_2023.11.05_08.49.xml"
+RNN_data1 = "RNN_data1_2023.11.05_12.20.xml"
+RNN_data2 = "RNN_data2_2023.11.05_16.22.xml"
+RNN_data3_1 = "RNN_data3_2023.11.06_10.17.xml"
+RNN_data3_2 = "RNN_data3_2023.11.06_15.26.xml"
+RNN_regression_540_1 = "RNN_Regression_540_2023.11.06_18.56.xml"
+RNN_regression_540_2 = "RNN_Regression_540_2023.11.06_20.46.xml"
+RNN_regression_540_3 = "RNN_Regression_540_2023.11.06_21.28.xml"
+RNN_regression_540_4 = "RNN_Regression_540_2023.11.06_21.51.xml"
+RNN_regression_540_5 = "RNN_Regression_540_2023.11.06_22.54.xml"
+RNN_regression_559_1 = "RNN_Regression_559_2023.11.06_16.36.xml"
+RNN_regression_559_2 = "RNN_Regression_559_2023.11.06_17.28.xml"
+RNN_regression_559_3 = "RNN_Regression_559_2023.11.06_18.18.xml"
+RNN_regression_data1_1 = "RNN_Regression_data1_2023.11.11_11.15.xml"
+RNN_regression_data1_2 = "RNN_Regression_data1_2023.11.11_13.02.xml"
+RNN_regression_data1_3 = "RNN_Regression_data1_2023.11.11_17.17.xml"
+RNN_regression_data3_1 = "RNN_Regression_data3_2023.11.09_20.24.xml"
+RNN_regression_data3_2 = "RNN_Regression_data3_2023.11.12_10.41.xml"
+
+All_RNN_classification = [RNN_559_563_1,   \
+             RNN_559_563_4,   \
+              RNN_data1, RNN_data2, RNN_data3_1, \
+             RNN_data3_2]
+
+All_RNN_regression = [ RNN_regression_540_1,  \
+              RNN_regression_540_4, RNN_regression_540_5,\
+             RNN_regression_559_1,  RNN_regression_559_3, \
+             RNN_regression_data1_1, RNN_regression_data1_2, RNN_regression_data1_3, \
+             RNN_regression_data3_1, RNN_regression_data3_2]
+
+All_RNN_files = [RNN_559_563_1,   \
+             RNN_559_563_4,   \
+              RNN_data1, RNN_data2, RNN_data3_1, \
+             RNN_data3_2, RNN_regression_540_1,  \
+              RNN_regression_540_4, RNN_regression_540_5,\
+             RNN_regression_559_1,  RNN_regression_559_3, \
+             RNN_regression_data1_1, RNN_regression_data1_2, RNN_regression_data1_3, \
+             RNN_regression_data3_1, RNN_regression_data3_2]
 
 ts_tags = [
     'ts',

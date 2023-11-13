@@ -161,7 +161,7 @@ def model_regression_RNN(dataTrain, dataValidation, filename, backward_slidingwi
     model_meal_RNN_regression(trainX, trainY, validX, validY,  filename, epochnumber, backward_slidingwindow, forward_slidingwindow,  learning_rate, oversampling, scaling,expansion_factor,expansion_multiplier )
 def model_meal_RNN_regression(train_x, train_y, validX, validY, filename, epochnumber,  backward_slidingwindow, forward_slidingwindow, learning_rate, oversampling, scaling, expansion_factor,expansion_multiplier):
     path_checkpoint = "modelMealRNN_checkpoint.h5"
-    opt = keras.optimizers.Adam(learning_rate=learning_rate)
+    opt = keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0)
     es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=30)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
 
@@ -173,19 +173,20 @@ def model_meal_RNN_regression(train_x, train_y, validX, validY, filename, epochn
         save_best_only=True,
     )
     model = Sequential()
-    model.add(LSTM(256, return_sequences=True, activation="relu", input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(LSTM(256, return_sequences=True, activation="tanh", input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=True, activation="relu"))
+    model.add(LSTM(128, return_sequences=True, activation="tanh"))
     model.add(Dropout(0.3))
-    model.add(LSTM(64, return_sequences=False, activation="relu"))
+    model.add(LSTM(128, return_sequences=True, activation="tanh"))
+    model.add(Dropout(0.3))
+    model.add(LSTM(64, return_sequences=False, activation="tanh"))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation=None))
 
     # Compile and train the model
     model.compile(loss="mse", optimizer=opt,metrics=["mae", "mse", root_mean_squared_error])
 
-    history = model.fit(train_x, train_y, epochs=epochnumber,
-                                                                callbacks=[es_callback, reduce_lr, modelckpt_callback],
+    history = model.fit(train_x, train_y, epochs=epochnumber,callbacks=[es_callback, reduce_lr, modelckpt_callback],
                                                                 verbose=1, shuffle=False,
                                                                 validation_data=([validX], [validY]))
 
@@ -203,10 +204,10 @@ if __name__ == "__main__":
     with tf.device("/cpu:0"):
      print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
      #train_1, test_1 = loadeverycleanedxml()
-     train, patient_data = load(CLEANEDTRAIN2_540_PATH)
-     test, patient_data = load(CLEANEDTEST2_540_PATH)
+     #train, patient_data = load(CLEANEDTRAIN2_540_PATH)
+     #test, patient_data = load(CLEANEDTEST2_540_PATH)
 
-     #train, test = loadeveryxmlparam(data_train3, data_test3)
+     train, test = loadeveryxmlparam(data_train3, data_test3)
 
 
      #train = data_cleaner(train, pd.Timedelta(5, "m"), 30, 3)
@@ -215,12 +216,12 @@ if __name__ == "__main__":
      #model_mealdetection_RNN(dataTrain=train,dataValidation=test, filename="RNN_data3", backward_slidingwindow=2,forward_slidingwindow=20,maxfiltersize=16,epochnumber=200,learning_rate=0.001,oversampling=False)
      model_regression_RNN(dataTrain=train,\
                           dataValidation=test,\
-                          filename="RNN_Regression_540",\
-                          backward_slidingwindow=6,\
-                          forward_slidingwindow=15,\
+                          filename="RNN_Regression_data3",\
+                          backward_slidingwindow=2,\
+                          forward_slidingwindow=25,\
                           epochnumber=100,\
                           learning_rate=0.001,\
-                          oversampling=False,\
+                          oversampling=True,\
                           expansion_factor=5,\
                           expansion_multiplier=1,\
-                          scaling=False)
+                          scaling=True)
