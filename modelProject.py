@@ -9,7 +9,7 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import SimpleRNN
 from tensorflow.keras.metrics import Precision, Recall
-
+import tensorflow as tf
 from keras.layers import Dropout
 from keras.layers import LSTM
 from keras.layers import RepeatVector
@@ -20,9 +20,15 @@ from keras.layers import MaxPooling1D
 from keras.layers import Reshape
 from scipy import ndimage
 from keras.callbacks import EarlyStopping
+from sklearn.metrics import f1_score, roc_auc_score
+from functions import loadeverycleanedxml, create_variable_sliding_window_dataset, \
+    write_model_stats_out_xml_classification
 
-from functions import loadeverycleanedxml, create_variable_sliding_window_dataset
+print("Is TensorFlow GPU accessible? ", tf.test.is_built_with_cuda())
 
+# List the available GPUs
+gpus = tf.config.list_physical_devices('GPU')
+print("Available GPUs:", gpus)
 def dataPrepare_single(data, backward_slidingwindow,forward_slidingwindow, maxfiltersize=15):
     dataValidation = data
 
@@ -54,10 +60,12 @@ def dataPrepare_single(data, backward_slidingwindow,forward_slidingwindow, maxfi
     validX = np.reshape(validX, (validX.shape[0], validX.shape[1], 1))
     return validX, validY
 
-cols = ['Name','Time','Iteration','CH','BloodSugar']
-data = pd.read_csv('t1dpatient_ALLpatient_1min.csv',usecols=cols)
 alltrain, alltest=loadeverycleanedxml()
-X_test,y_test=dataPrepare_single(alltest, 3, 15,15)
+X_test,y_test=dataPrepare_single(data=alltest, backward_slidingwindow=3, forward_slidingwindow=15,maxfiltersize=15)
+
+cols = ['Name','Time','Iteration','CH','BloodSugar']
+data = pd.read_parquet('converted.parquet', columns=cols)
+
 
 
 
@@ -86,7 +94,7 @@ X_train = []
 y_train = []
 
 time_step = 15
-time_step_forward = 50
+time_step_forward = 75
 
 names = dataX.Name.unique()
 iterations = dataX.Iteration.unique()
@@ -95,6 +103,10 @@ for k in range(0,len(iterations)*len(names)):
     for i in range(time_step,1440-time_step_forward):
         X_train.append(dataXX[(i+(k*1440))-time_step:(i+(k*1440))+time_step_forward])
         y_train.append(dataY[(i+(k*1440)):(i+(k*1440))+1])
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+
+X_train=X_train[:,::5,:]
 
 ##for test data
 #testdataX = data[['Name','Time','Iteration','CH','BloodSugar']]
@@ -144,29 +156,30 @@ X_train = np.array(X_train)
 X_test = np.array(X_test)
 print(type(X_train))
 print(X_train.shape)
+has_nan = np.isnan(X_train).any()
 
+print(has_nan)
 
 model = Sequential()
-
 #model.add(Conv1D(filters=160,kernel_size=7,kernel_initializer="truncated_normal",input_shape=(X_train.shape[1],1)))
 # model.add(LSTM(192,return_sequences=False,activation="tanh",input_shape=(X_train.shape[1],1)))
 # #model.add(Dropout(0.25))
 # #model.add(Dense(128))
 # model.add(Dense(1,activation="relu"))
+class_weights = {0: 1.,
+                     1: 3.}
+opt = keras.optimizers.Adam(learning_rate=0.001)
 
-opt = keras.optimizers.Adam(learning_rate=0.01)
-
-model.add(LSTM(128,return_sequences=True,input_shape=(X_train.shape[1],X_train.shape[2])))
+model.add(LSTM(256, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
 model.add(Dropout(0.3))
-model.add(LSTM(128,return_sequences=True))
+model.add(LSTM(128, return_sequences=True))
 model.add(Dropout(0.3))
-model.add(LSTM(128,return_sequences=False))
+model.add(LSTM(64, return_sequences=False))
 model.add(Dropout(0.3))
-model.add(Dense(1,activation="sigmoid"))
+model.add(Dense(1, activation="sigmoid"))
 model.summary()
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy",Precision(name="precision"), Recall(name="recall")])
-history = model.fit(X_train,y_train, epochs=100)
-
+history = model.fit(class_weight=class_weights, x=X_train, y=y_train, epochs=100,validation_data=(X_test, y_test))
 
 import matplotlib.pyplot as plt
 
@@ -179,6 +192,18 @@ plt.plot(prediction[0:1440*3], label='prediction')
 plt.plot(y_test[0:1440*3], label='test_data')
 plt.legend()
 plt.show()
+
+# Loss and validation loss plot
+plt.plot(history.history['loss'], label='Training loss')
+plt.plot(history.history['val_loss'], label='Validation loss')
+plt.title('Training VS Validation loss')
+plt.xlabel('No. of Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+filename='modelproject_01'
+write_model_stats_out_xml_classification(history, y_test, prediction, filename, 3,
+                                             15, 15, 0.001, False)
 
 
 
