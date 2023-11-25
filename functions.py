@@ -35,8 +35,10 @@ def expand_peak(arr, expansion_factor=2, expansion_multiplier=0.8):
                     expanded_arr[i + j] = arr[i] * multiplier
 
             expanded_arr[i] = arr[i]
+    flattened_arr = [val[0] if isinstance(val, np.ndarray) else val for val in expanded_arr]
 
-    return expanded_arr
+
+    return flattened_arr
 
 
 
@@ -625,11 +627,11 @@ def write_all_cleaned_xml_continuous():
         filled_data = fill_glucose_level_data_continuous(filled_data, pd.Timedelta(5, 'm'))
         write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
 
-def write_all_cleaned_xml():
+def write_all_cleaned_xml(missing_count_threshold,missing_eat_threshold):
     for filepaths in ALL_FILE_PATHS:
         data, patient_data = load(filepaths)
         stringpath = filepath_to_string(filepaths)
-        filled_data = data_cleaner(data, pd.Timedelta(5, "m"), 30, 3)
+        filled_data = data_cleaner(data, pd.Timedelta(5, "m"), missing_count_threshold, missing_eat_threshold)
         write_to_xml(os.path.join(CLEANED_DATA_DIR2, stringpath), filled_data, int(patient_data['id']),patient_data['insulin_type'],body_weight=int(patient_data['weight']))
 
 #endregion

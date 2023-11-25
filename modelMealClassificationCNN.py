@@ -4,7 +4,8 @@ from keras import backend as K
 from defines import *
 from functions import load_everything, drop_days_with_missing_glucose_data, drop_days_with_missing_eat_data, \
     fill_glucose_level_data_continuous, loadeveryxml, create_variable_sliding_window_dataset, data_cleaner, \
-    loadeverycleanedxml, dataPrepareRegression, loadmultiplexml, write_model_stats_out_xml_classification
+    loadeverycleanedxml, dataPrepareRegression, loadmultiplexml, write_model_stats_out_xml_classification, \
+    write_all_cleaned_xml
 import numpy as np
 from statistics import stdev
 from scipy import signal
@@ -22,6 +23,7 @@ from keras.layers import Input, LSTM, Dense, Dropout, Conv1D, MaxPooling1D, Flat
 from sklearn.preprocessing import MinMaxScaler
 from imblearn.over_sampling import SMOTE
 import tensorflow_addons as tfa
+from keras.utils import plot_model
 
 
 print("Is TensorFlow GPU accessible? ", tf.test.is_built_with_cuda())
@@ -71,6 +73,13 @@ def dataPrepare(dataTrain, dataTest,patientID, backward_slidingwindow,forward_sl
     features_validation = features_validation.sort_values(by='ts', ignore_index=True)
 
     features_validation_y = features_validation['carbs']
+    # Counting of 0 and 1 meal instances
+    count_0 = (features_validation_y == 0).sum()
+    count_1 = (features_validation_y == 1).sum()
+
+    print(f"Count of 0: {count_0}")
+    print(f"Count of 1: {count_1}")
+    #
     features_validation_y = ndimage.maximum_filter(features_validation_y, size=maxfiltersize)
     features_validation_y = pd.DataFrame(features_validation_y)
 
@@ -118,7 +127,7 @@ def dataPrepare(dataTrain, dataTest,patientID, backward_slidingwindow,forward_sl
     return trainX, trainY, validX, validY
 
 
-def model2(dataTrain, dataTest,patientID, backward_slidingwindow,forward_slidingwindow, maxfiltersize=10, epochnumber=50,modelnumber=1,learning_rate=0.001,oversampling=False):
+def model2(dataTrain, dataTest,patientID, backward_slidingwindow,forward_slidingwindow, maxfiltersize=10, epochnumber=50,learning_rate=0.001,oversampling=False):
 
     trainX, trainY, validX, validY = dataPrepare(dataTrain=dataTrain, dataTest=dataTest,patientID=patientID, backward_slidingwindow=backward_slidingwindow,forward_slidingwindow=forward_slidingwindow,maxfiltersize=maxfiltersize,oversampling=oversampling)
 
@@ -136,7 +145,7 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001,b
     es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=30)
 
     class_weights = {0: 1.,
-                     1: 4.}
+                     1: 2.}
 
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
@@ -147,34 +156,34 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001,b
     )
     model = Sequential()
     # Convolutional layers
-    model.add(Conv1D(filters=256, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(Conv1D(filters=128, kernel_size=3, activation='relu', input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(MaxPooling1D(pool_size=2))
-    model.add(Dropout(0.1))
-    model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
+    model.add(Dropout(0.3))
+    model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))
     model.add(MaxPooling1D(pool_size=2))
-    model.add(Dropout(0.1))
+    model.add(Dropout(0.3))
 
     # LSTM layers
-    model.add(LSTM(128, return_sequences=True))
-    model.add(Dropout(0.1))
-    model.add(Bidirectional(LSTM(128)))
-    model.add(Dropout(0.1))
+    model.add(LSTM(64, return_sequences=True,activation='relu'))
+    model.add(Dropout(0.3))
 
     # Dense layers at the end
     model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.1))
     model.add(Dense(64, activation='relu'))
-    model.add(Dropout(0.1))
+    model.add(Dropout(0.3))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dropout(0.3))
     model.add(Dense(1, activation='sigmoid'))
     model.compile(loss="binary_crossentropy", optimizer=opt, metrics=["accuracy",
                                                                          tf.keras.metrics.Precision(name="precision"),
                                                                          tf.keras.metrics.Recall(name="recall"),
                                                                          tf.keras.metrics.AUC(name="auc"),
                                                                          tfa.metrics.F1Score(num_classes=1,
-                                                                                             average='macro',
+                                                                                             average='weighted',
                                                                                              threshold=0.5)
                                                                          ])
+    plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+
     history=model.fit(train_x, train_y, epochs=epochnumber,class_weight=class_weights, callbacks=[modelckpt_callback], verbose=1, shuffle=False,
               validation_data=(validX, validY))
 
@@ -195,23 +204,23 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001,b
     plt.legend()
     plt.show()
     filename="R-CNN_Classification_ALL"
-    write_model_stats_out_xml_classification(history, validY, prediction, filename, backward_slidingwindow,
-                                             forward_slidingwindow, maxfiltersize, learning_rate, oversampling)
+    #write_model_stats_out_xml_classification(history, validY, prediction, filename, backward_slidingwindow,forward_slidingwindow, maxfiltersize, learning_rate, oversampling)
+
 
 
 
 
 if __name__ == "__main__":
     #train, test = loadeveryxml()
-    train,test=loadeveryxml()
-   #train,_=load(TRAIN_559_PATH)
-   #test,_=load(TEST_559_PATH)
-    train = data_cleaner(train, pd.Timedelta(5, "m"), 40, 2)
-    test=data_cleaner(test, pd.Timedelta(5, "m"), 40, 2)
+    #train,test=loadmultiplexml(TRAIN2_FILE_PATHS,TEST2_FILE_PATHS)
+     train,_=load(TRAIN2_544_PATH)
+     test,_=load(TEST2_544_PATH)
+     train = data_cleaner(train, pd.Timedelta(5, "m"), 70, 1)
+     test = data_cleaner(test, pd.Timedelta(5, "m"), 70, 1)
 
 
 
-    model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=20,epochnumber=100,modelnumber=1,learning_rate=0.001,oversampling=False,patientID=1)
+  # model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=15,epochnumber=100,learning_rate=0.001,oversampling=False,patientID=1)
 
 
 
