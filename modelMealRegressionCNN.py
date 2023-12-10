@@ -79,9 +79,10 @@ def modelCNNRegression(train_x, train_y, validX, validY, epochnumber, learning_r
 
 
 if __name__ == "__main__":
-    train, patient_data = load(TRAIN2_544_PATH)
-    test, patient_data = load(TEST2_544_PATH)
+   #train, patient_data = load(TRAIN2_544_PATH)
+   #test, patient_data = load(TEST2_544_PATH)
     #train,test=load()
+    train,test=loadeveryxml()
     #train,test=loadmultiplexml(TRAIN_FILE_PATHS,TEST_FILE_PATHS)
     # trainX, trainY,testX,testY = dataPrepare(train, test, 3, 15)
     train = data_cleaner(train, pd.Timedelta(5, "m"), 70, 1)

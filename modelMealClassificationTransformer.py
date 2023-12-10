@@ -10,18 +10,21 @@ from sklearn.model_selection import train_test_split
 import time
 import matplotlib.pyplot as plt
 
-from functions import loadeverycleanedxml
+from functions import loadeverycleanedxml, loadeveryxml, data_cleaner
 from xml_read import load
 from defines import *
 from tensorflow import keras
 import tensorflow as tf
 from tensorflow.keras import layers
-
+import keras
 from modelMealClassificationCNN import dataPrepare
 
-#train, _= load(TRAIN2_544_PATH)
-#test,_= load(TEST2_544_PATH)
-train,test=loadeverycleanedxml()
+#train, _= load(TRAIN2_540_PATH)
+#test,_= load(TEST2_540_PATH)
+#train,test=loadeverycleanedxml()
+train,test=loadeveryxml()
+train = data_cleaner(train, pd.Timedelta(5, "m"), 70, 1)
+test = data_cleaner(test, pd.Timedelta(5, "m"), 70, 1)
 x_train, y_train, x_test, y_test = dataPrepare(train, test, 3, 3,15,15,False)
 
 def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
@@ -109,7 +112,7 @@ history=model.fit(
     x_train,
     y_train,
     validation_split=0.2,
-    epochs=2000,
+    epochs=1000,
     batch_size=64,
     callbacks=callbacks,
 )

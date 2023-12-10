@@ -603,7 +603,10 @@ def avg_calculator(data: dict[str, pd.DataFrame]):
 
         glucose_level_count = cleaned_data['glucose_level'][cleaned_data['glucose_level']['ts'] >= current_day]
         glucose_level_count = glucose_level_count[glucose_level_count['ts'] < next_day]
-        average = np.sum(glucose_level_count['value']) / glucose_level_count.shape[0]
+        if glucose_level_count.shape[0] == 0:
+            average = 100
+        else:
+            average = np.sum(glucose_level_count['value']) / glucose_level_count.shape[0]
         if not math.isnan(float(average)):
             glucose_level_average.append(math.floor(average))
         current_day = next_day

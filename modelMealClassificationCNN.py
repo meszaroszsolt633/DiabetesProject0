@@ -110,6 +110,12 @@ def dataPrepare(dataTrain, dataTest,patientID, backward_slidingwindow,forward_sl
 
     print("Shape of trainX:", featurestrain.shape)
     print("Shape of trainY:", featuresvalidation.shape)
+    mean_value = featurestrain['value'].mean()
+    mean_validation_value= featuresvalidation['value'].mean()
+
+    featurestrain['value'].fillna(mean_value, inplace=True)
+    featuresvalidation['value'].fillna(mean_validation_value, inplace=True)
+
     trainX, trainY = create_variable_sliding_window_dataset(featurestrain, backward_slidingwindow,
                                                             forward_slidingwindow)
     validX, validY = create_variable_sliding_window_dataset(featuresvalidation, backward_slidingwindow,
@@ -145,7 +151,7 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001,b
     es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=30)
 
     class_weights = {0: 1.,
-                     1: 2.}
+                     1: 3.}
 
     modelckpt_callback = keras.callbacks.ModelCheckpoint(
         monitor="val_loss",
@@ -170,8 +176,6 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001,b
     # Dense layers at the end
     model.add(Flatten())
     model.add(Dense(64, activation='relu'))
-    model.add(Dropout(0.3))
-    model.add(Dense(32, activation='relu'))
     model.add(Dropout(0.3))
     model.add(Dense(1, activation='sigmoid'))
     model.compile(loss="binary_crossentropy", optimizer=opt, metrics=["accuracy",
@@ -211,16 +215,13 @@ def modelCNN(train_x, train_y, validX, validY, epochnumber,learning_rate=0.001,b
 
 
 if __name__ == "__main__":
-    #train, test = loadeveryxml()
+     train, test = loadeveryxml()
     #train,test=loadmultiplexml(TRAIN2_FILE_PATHS,TEST2_FILE_PATHS)
-     train,_=load(TRAIN2_544_PATH)
-     test,_=load(TEST2_544_PATH)
-     train = data_cleaner(train, pd.Timedelta(5, "m"), 70, 1)
-     test = data_cleaner(test, pd.Timedelta(5, "m"), 70, 1)
-
-
-
-  # model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=15,epochnumber=100,learning_rate=0.001,oversampling=False,patientID=1)
+    #train,_=load(TRAIN2_544_PATH)
+    #test,_=load(TEST2_544_PATH)
+     train = data_cleaner(train, pd.Timedelta(5, "m"), 25, 1)
+     test = data_cleaner(test, pd.Timedelta(5, "m"), 25, 1)
+     model2(dataTrain=train,dataTest=test,backward_slidingwindow=3,forward_slidingwindow=15,maxfiltersize=15,epochnumber=100,learning_rate=0.001,oversampling=False,patientID=1)
 
 
 
